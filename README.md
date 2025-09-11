@@ -1,9 +1,9 @@
-# 📦 MiRepositorio
+# 🔭 Repositorio Instrumentos ópticos 🌌
 
 Este repositorio contiene prácticas y proyectos de la materia Instrumentos Opticos
 
-## 📂 Practicas
+## 📂 Practicas 🔦
 - [Practica 1](practicas/practica1/main.py) → Difracción
 
-## 📂 Proyectos
+## 📂 Proyectos 📊
 - [Proyecto 1](proyectos/proyecto1) → Por definir
