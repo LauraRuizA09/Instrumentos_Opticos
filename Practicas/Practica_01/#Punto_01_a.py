@@ -48,7 +48,6 @@ U0 = aperture.astype(np.complex128) #Como la funcion anteriro retorna valores bo
                                     #complejos de matrices para poder hacer FFT
 
 
-
 # ---------- A[p,q,0] por FFT ----------
 
 # Aca solo debemos aplicar la trasnsformada de fouriere a la funcio U[n,m,0]
@@ -77,6 +76,29 @@ Az = A0 * (np.exp(1j*z*k*h))
 
 Uz = np.fft.ifft2(Az) 
 
+# Crear ejes de frecuencia
+fx = np.fft.fftfreq(Nx, d=dx)
+fy = np.fft.fftfreq(Ny, d=dy)
+FX, FY = np.meshgrid(fx, fy)
+
+# ---------- Graficar magnitud de Az centrada ----------
+plt.figure(figsize=(6,6))
+plt.imshow(np.fft.fftshift(np.abs(Uz)), 
+           extent=[fx.min(), fx.max(), fy.min(), fy.max()],
+           origin='lower', cmap='inferno')
+plt.colorbar(label='|Az(fx,fy)|')
+plt.title("Espectro de Fourier con propagación |Az|")
+plt.xlabel("fx [1/mm]")
+plt.ylabel("fy [1/mm]")
+
+# ---------- Zoom (opcional) ----------
+f0 = 1. # rango de frecuencia que quieres ver
+plt.xlim(-f0, f0)
+plt.ylim(-f0, f0)
+
+plt.show()
+
+
 # ---------- Re-ordenar el campo U[n,m,z] ----------
 
 # Por la teoria vista de analisis de muestreo vimos que realmente no estamos calculando 
@@ -88,7 +110,7 @@ Uz_shifted = np.fft.fftshift(Uz)
 
 # ---------- Intensidad I[x,y,z] ----------
 
-I = np.abs(Uz_shifted)**2
+I = np.abs(A0)**2
 I = I / np.max(I)  # Normalizar
 
 # ---------- Visualizar el resultado ----------
