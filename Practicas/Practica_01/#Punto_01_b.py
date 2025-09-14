@@ -28,11 +28,7 @@ x = n * dx                # x = Δx * n
 y = m * dx                # y = Δy * m
 X, Y = np.meshgrid(x, y)
 
-#x = (np.arange(Nx) - Nx/2) * dx
-#y = (np.arange(Ny) - Ny/2) * dy
-#X, Y = np.meshgrid(x, y)
-
-# ---------- Coordenadas ene l plano de la apertura ----------
+# ---------- Coordenadas en el plano de la apertura ----------
 n0 = np.arange(Nx) #Contadores
 m0 = np.arange(Ny)
 x0 = n0 * dx0                # x = Δx * n
