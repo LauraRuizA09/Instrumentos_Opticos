@@ -8,27 +8,27 @@ import matplotlib.pyplot as plt
 # ---------- Parámetros ----------
 
 #-----Muestreo Horizontal-------
-Nx = 600        # número de muestras por eje (es mejor utilizar un numero mayor de muestras para mejorar el muestreo)
+Nx = 800        # número de muestras por eje (es mejor utilizar un numero mayor de muestras para mejorar el muestreo)
 Lx = 10        # tamaño físico de la ventana (mm)
 dx = Lx / Nx    # paso espacial Δ
 dfx = 1 / Lx    # paso en frecuencia Δf
 
 #-----Muestreo Vertical-------
-Ny = 600        # número de muestras por eje (es mejor utilizar un numero mayor de muestras para mejorar el muestreo)
+Ny = 800        # número de muestras por eje (es mejor utilizar un numero mayor de muestras para mejorar el muestreo)
 Ly = 10         # tamaño físico de la ventana (mm)
 dy = Ly / Ny    # paso espacial Δ
 dfy = 1 / Ly    # paso en frecuencia Δf
 
 # ---------- Coordenadas espaciales ----------
-n = np.arange(Nx) - Nx/2 # Contadores
-m = np.arange(Ny) - Ny/2
+n = np.arange(Nx) - Nx//2 # Contadores
+m = np.arange(Ny) - Ny//2
 x = n * dx                # x = Δx * n
 y = m * dx                # y = Δy * m
 X, Y = np.meshgrid(x, y)
 
 # ---------- Coordenadas de frecuencia ----------
-p = np.arange(Nx) #Contadores
-q = np.arange(Ny)
+p = np.arange(Nx) - Nx//2#Contadores
+q = np.arange(Ny) - Ny//2
 fx = p * dfx               # fx = Δfx * p   
 fy = q * dfy               # fy = Δfy * q
 FX, FY = np.meshgrid(fx, fy)
@@ -52,18 +52,18 @@ U0 = aperture.astype(np.complex128) #Como la funcion anteriro retorna valores bo
 # usamos fft2 debido a que estamos trabajndo en dos dimensiones
 
 A0 = np.fft.fft2(U0) * ((dx)**2)
-plt.plot(np.abs(A0)**2)
-
+A0_ = np.fft.fftshift(A0)  # Centramos el espectro de frecuencias
 
 # ---------- A[p,q,z] ----------
 
 lam_nm = 650         # longitud de onda en nanómetros
 lam_mm = lam_nm * 1e-6   # conversión a milímetros
 k = (2*np.pi) / lam_mm
-z = 40                # en mm
+z = 4000                # en mm
 w = (lam_mm*dfx)**2
-h = np.sqrt(1-((w)*(p**2 + q**2)))
-Az = A0 * (np.exp(1j*z*k*h))
+h = np.sqrt(1-((w)*(FX**2 + FY**2)))
+Az = A0_ * (np.exp(1j*z*k*h))
+Az_ = np.fft.fftshift(Az)  # Centramos el espectro de frecuencias
 
 
 # ---------- U[n,m,z] por IFFT ----------
@@ -72,7 +72,7 @@ Az = A0 * (np.exp(1j*z*k*h))
 # del espacio de frecuencias al espacio dimensional por eso utilizamos
 # la transformada inversa de fourier de la funcion del espectro angular
 
-Uz = (np.fft.ifft2(Az)) * ((dfx)**2)
+Uz = (np.fft.ifft2(Az_)) * ((dfx)**2)
 
 # ---------- Re-ordenar el campo U[n,m,z] ----------
 
