@@ -90,7 +90,7 @@ I = I / np.max(I)  # Normalizar
 
 # ---------- Visualizar el resultado ----------
 extent = [-Lx/2, Lx/2, -Ly/2, Ly/2]
-plt.imshow(I, extent=extent, origin='lower')
+plt.imshow(I, cmap="grey",extent=extent, origin='lower')
 plt.colorbar()
 plt.title("Intensidad |$U(x,y,z)|^2$ a $z$=$10mm$")
 plt.show()
