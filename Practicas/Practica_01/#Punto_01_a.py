@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 #-----Muestreo Horizontal-------
 Nx = 800        # número de muestras por eje (es mejor utilizar un numero mayor de muestras para mejorar el muestreo)
-Lx = 10        # tamaño físico de la ventana (mm)
+Lx = 10         # tamaño físico de la ventana (mm)
 dx = Lx / Nx    # paso espacial Δ
 dfx = 1 / Lx    # paso en frecuencia Δf
 
@@ -19,19 +19,25 @@ Ly = 10         # tamaño físico de la ventana (mm)
 dy = Ly / Ny    # paso espacial Δ
 dfy = 1 / Ly    # paso en frecuencia Δf
 
-# ---------- Coordenadas espaciales ----------
-n = np.arange(Nx) - Nx//2 # Contadores
+
+# Contadores
+n = np.arange(Nx) - Nx//2 
 m = np.arange(Ny) - Ny//2
+
+# ---------- Coordenadas espaciales ----------
 x = n * dx                # x = Δx * n
 y = m * dx                # y = Δy * m
 X, Y = np.meshgrid(x, y)
 
-# ---------- Coordenadas de frecuencia ----------
-p = np.arange(Nx) - Nx//2#Contadores
+#Contadores
+p = np.arange(Nx) - Nx//2
 q = np.arange(Ny) - Ny//2
+
+# ---------- Coordenadas de frecuencia ----------
 fx = p * dfx               # fx = Δfx * p   
 fy = q * dfy               # fy = Δfy * q
 FX, FY = np.meshgrid(fx, fy)
+
 
 # ---------- Campo inicial U(x,y,0) ----------
 
@@ -94,3 +100,5 @@ plt.imshow(I, extent=extent, origin='lower')
 plt.colorbar()
 plt.title("Intensidad |$U(x,y,z)|^2$ a $z$=$10mm$")
 plt.show()
+
+
