@@ -81,25 +81,31 @@ def update(val):
 
     # --- Cálculo Numérico ---
     dx0 = (lam_mm * z) / (Nx * dx)    # Δ0 = dy0 = dx0
-    dy0 = (lam_mm * z) / (Ny * dy)
+    dy0 = (lam_mm * z) / (Ny * dy)    # Condicion del metodo de Fresnel -> ΔΔ0 = λz/N 
     n0 = np.arange(Nx) - Nx // 2
     m0 = np.arange(Ny) - Ny // 2
     x0 = n0 * dx0
     y0 = m0 * dy0
     X0, Y0 = np.meshgrid(x0, y0)
     
+
+    #------Generamos U[n,m,0]------
     aperture = (np.abs(X0) <= L / 2) & (np.abs(Y0) <= L / 2)
     U0 = aperture.astype(np.complex128)
     
+    #------Calculamos U'[n,m0]------
     phase_in = np.exp(1j * (k / (2 * z)) * (X0**2 + Y0**2))
     U0_prima = U0 * phase_in
     
+    #------Calculamos U''[n,m,z]------
     U0_prima2 = np.fft.fft2(U0_prima) * (dx0 * dy0)
     
+    #------EScalamos U''[n,m,z]------
     phase_out = np.exp(1j * (k / (2 * z)) * (X**2 + Y**2))
     pre_factor = (np.exp(1j * k * z) / (1j * lam_mm * z))
     U_z = pre_factor * phase_out * U0_prima2
     
+    #------Reordenamos el campo------
     U_z_shifted = np.fft.fftshift(U_z)
     
     I_numerical = np.abs(U_z_shifted)**2
