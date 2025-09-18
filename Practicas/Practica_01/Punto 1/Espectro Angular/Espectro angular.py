@@ -6,22 +6,22 @@ from scipy.special import fresnel
 
 #Metodo Espectro Angular
 
-# ---------- Parámetros ----------
-a = 0.3# mm
-b = 0.3# mm
-z =10 # mm
-lam_nm = 650         # longitud de onda en nanómetros
-lam_mm = lam_nm * 1e-6   # conversión a milímetros
+# ---------- Parámetros Físicos ----------
+a = 4  # Tamaño horizontal de la rendija en  mm
+b = 1  # Tamaño vertical de la rendija en mm
+z = 100   # Distancia de propagación en mm
+lam_nm = 650         # Longitud de onda en nanómetros
+lam_mm = lam_nm * 1e-6   # Conversión a milímetros
 
 #-----Muestreo Horizontal-------
-Nx = 1024       # número de muestras por eje (es mejor utilizar un numero mayor de muestras para mejorar el muestreo)
-Lx = 1      # tamaño físico de la ventana (mm)
+Nx = 1024  # número de muestras por eje (es mejor utilizar un numero mayor de muestras para mejorar el muestreo)
+Lx= 10   # tamaño físico de la ventana (mm)
 dx = Lx / Nx    # paso espacial Δ
 dfx = 1 / Lx    # paso en frecuencia Δf
 
 #-----Muestreo Vertical-------
-Ny = 1024        # número de muestras por eje (es mejor utilizar un numero mayor de muestras para mejorar el muestreo)
-Ly = 1       # tamaño físico de la ventana (mm)
+Ny = 1024     # número de muestras por eje (es mejor utilizar un numero mayor de muestras para mejorar el muestreo)
+Ly =10  # tamaño físico de la ventana (mm)
 dy = Ly / Ny    # paso espacial Δ
 dfy = 1 / Ly    # paso en frecuencia Δf
 
@@ -35,54 +35,39 @@ X, Y = np.meshgrid(x, y)
 # ---------- Coordenadas de frecuencia ----------
 p = np.arange(Nx) - Nx//2 #Contadores
 q = np.arange(Ny) - Ny//2
+P,Q=np.meshgrid(p,q)
 fx = p * dfx               # fx = Δfx * p   
 fy = q * dfy               # fy = Δfy * q
 FX, FY = np.meshgrid(fx, fy)
 
 # ---------- Campo inicial U(x,y,0) ----------
-# Rendija de ancho a
+# Rendija rectangular de ancho a y altura b
 aperture = (abs(X) <= a/2)*(abs(Y) <= b/2)  
 U0 = aperture.astype(np.complex128) #Como la funcion anterior retorna valores booleanos debemos pasarla a valores 
                                     #complejos para poder tener términos de fase.
-plt.imshow(abs(U0)**2,cmap="grey",origin="lower")
-plt.show()
-
 # ---------- A[p,q,0] por FFT ----------
 
-# Acá solo debemos aplicar la transformada de fourier a la funcio U[n,m,0]
+# Acá solo debemos aplicar la transformada de fourier a la funció U[n,m,0]
 # y multiplicarla por Δx*Δy = Δ², ya que segun la simplificacion y el analisis 
 # matematicos y fisico llegamos a esa relacion de aplicar FFT, computacionalmente
-# usamos fft2 debido a que estamos trabajndo en dos dimensiones
+# usamos fft2 debido a que estamos trabajando en dos dimensiones
 
-A0 = np.fft.fft2(U0) * ((dx)**2) #Cálculo del espectro de entrada
-A0_ = np.fft.fftshift(A0)  # Centramos el espectro de frecuencias
-
-
+A0 = np.fft.fft2(U0) * ((dx*dy)) #Cálculo del espectro de entrada
+A0_ = np.fft.fftshift(A0)  # Organizamos el espectro de frecuencias para
+                           # que la multiplicación por la función de transferencia
+                           # se haga de manera organizada
 # ---------- A[p,q,z] ----------
 
-def Funcion_de_transferencia(A, a, z, lam_mm):
-    k = (2*np.pi) / lam_mm
-    
-    # El término dentro de la raíz cuadrada
-    argumento_raiz = 1 - (lam_mm**2) * (FX**2 + FY**2)
-    
-    # Crear un filtro para las ondas que SÍ se propagan (donde el argumento es >= 0)
-    filtro_propagacion = argumento_raiz >= 0
-    
-    # Inicializar la función de transferencia H con ceros
-    H = np.zeros_like(FX, dtype=np.complex128)
-    
-    # Calcular h solo para las ondas que se propagan
-    h = np.sqrt(argumento_raiz[filtro_propagacion])
-    
-    # Calcular el valor de H solo en esas posiciones
-    H[filtro_propagacion] = np.exp(1j * k * z * h)
-    
-    # Multiplicar el espectro de entrada por el filtro H
-    return A * H
-Az = Funcion_de_transferencia(A0_,a,z,lam_mm) #Propagamos el espectro de entrada
-Az_ = np.fft.fftshift(Az)  #De-centramos el espectro de frecuencias
+def Funcion_de_transferencia(A, a, z, lam_mm): #Definimos la función de transferencia
+    k = (2*np.pi) / lam_mm 
+    w= 1 - ((lam_mm*dfx)**2) * (P**2 + Q**2)
+    m=1j*z*k*np.sqrt(w.astype(np.complex128))  # Permitimos resultados complejos en la raíz
+    return A * np.exp(m)                       
 
+
+Az = Funcion_de_transferencia(A0_,a,z,lam_mm)  # Propagamos el espectro de entrada y
+Az_ = np.fft.fftshift(Az)                      # De-centramos el espectro de frecuencias
+                                               # por que la IFFT recibe el espectro "desorganizado"
 
 # ---------- U[n,m,z] por IFFT ----------
 
@@ -104,16 +89,11 @@ Uz_shifted = np.fft.fftshift(Uz)
 # ---------- Intensidad I[x,y,z] ----------
 
 I = np.abs(Uz)**2
-I = I / np.max(I)  # Normalizar
+I_norm = I / np.max(I)  # Normalizar
 
 # ---------- Visualizar el resultado ----------
-
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12,6))
-extent = [-Lx/2, Lx/2, -Ly/2, Ly/2] #Dominio espacial
-# Campo inicial (ax1)
-
 #Fresnel
-def IF(p,lam_mm,z,X):      #Función para calcular la integral de fresnel alrededor del eje "X"
+def IF(p,lam_mm,z,X):      #Función para calcular la integral de fresnel alrededor del eje genérico "X"
     NF=(p/2)**2/(lam_mm*z)
     l=np.sqrt(2*NF)*(1-(2*X)/p)
     u=np.sqrt(2*NF)*(1+(2*X)/p)
@@ -125,15 +105,18 @@ def amplitud(a,lam_mm,z,X,Y):
     amp=(np.exp(1j*(k*z))/1j)*IF(a,lam_mm,z,X)*IF(b,lam_mm,z,Y)
     amp_max=np.max(amp)
     return amp/amp_max
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12,6))
+extent = [-Lx/2, Lx/2, -Ly/2, Ly/2] #Dominio espacial
+# Expresión analítica (ax1)
 ax1.set_title(f"|$U(x,y,z)|^2$ z = {z} mm (Expresión analítica)")
 ax1.set_xlabel("x (mm)")
 ax1.set_ylabel("y (mm)")
-im2=ax1.imshow(abs(amplitud(a,lam_mm,z,X,Y))**2,cmap="grey", extent=extent, origin='lower')
-# Campo propagado (ax2)
-im1 = ax2.imshow(I, cmap="grey", extent=extent, origin='lower')
-ax2.set_title(f"|$U(x,y,z)|^2$ z = {z} mm (Cálculo numérico)")
+im1=ax1.imshow(abs(amplitud(a,lam_mm,z,X,Y))**2,cmap="grey", extent=extent, origin='lower')
+# Espectro angular (ax2)
+im2 = ax2.imshow(I_norm, cmap="grey", extent=extent, origin='lower')
+ax2.set_title(f"|$U(x,y,z)|^2$ z = {z} mm (Espectro angular numérico)")
 ax2.set_xlabel("x (mm)")
 ax2.set_ylabel("y (mm)")
 fig.subplots_adjust(left=0.09,right=1.01)
-fig.colorbar(im1, ax=[ax1, ax2], label="Intensidad Normalizada")
+fig.colorbar(im2, ax=[ax1, ax2], label="Intensidad Normalizada")
 plt.show()
