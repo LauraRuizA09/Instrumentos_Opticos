@@ -4,7 +4,7 @@ from scipy.special import fresnel
 # ---------- Parámetros Físicos ----------
 a = 4  # Tamaño horizontal de la rendija en mm
 b = 1  # Tamaño vertical de la rendija en mm
-z = 100# Distancia de propagación en mm
+z = 1000# Distancia de propagación en mm
 lam_nm = 650      # Longitud de onda en nanómetros
 lam_mm = lam_nm * 1e-6  # Conversión a milímetros
 

@@ -1,27 +1,28 @@
-#Punto_01
-
 import numpy as np
+from PIL import Image
 import matplotlib.pyplot as plt
-from scipy.special import fresnel
 
+
+#--------- Cargar la imagen -------------------
+imagen=Image.open(r"Practicas\Practica_01\Punto 3\Transm_E05.png").convert('L') # Se carga en escala de grises
+data=np.flipud(np.array(imagen)) # Se convierte en un numpy array y se voltea para que los ejes de pixel del método imshow y espaciales coincidan                                                
+umbral=(np.max(data)+np.min(data))/2 # Se calcula o se define el umbral para la binarización
+data_bin=(data>umbral).astype(float) # Se aplica el umbral de binarización
 #Metodo Espectro Angular
 
-# ---------- Parámetros Físicos ----------
-a = 4  # Tamaño horizontal de la rendija en  mm
-b = 1  # Tamaño vertical de la rendija en mm
-z = 100   # Distancia de propagación en mm
-lam_nm = 650         # Longitud de onda en nanómetros
+z = 250   # Distancia de propagación en mm
+lam_nm = 633         # Longitud de onda en nanómetros
 lam_mm = lam_nm * 1e-6   # Conversión a milímetros
 
 #-----Muestreo Horizontal-------
-Nx = 1024  # número de muestras por eje (es mejor utilizar un numero mayor de muestras para mejorar el muestreo)
-Lx= 10   # tamaño físico de la ventana (mm)
+Nx = np.shape(data)[1]  # número de muestras por eje (es mejor utilizar un numero mayor de muestras para mejorar el muestreo)
+Lx= 5.8   # tamaño físico de la ventana (mm)
 dx = Lx / Nx    # paso espacial Δ
 dfx = 1 / Lx    # paso en frecuencia Δf
 
 #-----Muestreo Vertical-------
-Ny = 1024     # número de muestras por eje (es mejor utilizar un numero mayor de muestras para mejorar el muestreo)
-Ly =10  # tamaño físico de la ventana (mm)
+Ny = np.shape(data)[0]     # número de muestras por eje (es mejor utilizar un numero mayor de muestras para mejorar el muestreo)
+Ly = 5.8  # tamaño físico de la ventana (mm)
 dy = Ly / Ny    # paso espacial Δ
 dfy = 1 / Ly    # paso en frecuencia Δf
 
@@ -41,10 +42,8 @@ fy = q * dfy               # fy = Δfy * q
 FX, FY = np.meshgrid(fx, fy)
 
 # ---------- Campo inicial U(x,y,0) ----------
-# Rendija rectangular de ancho a y altura b
-aperture = (abs(X) <= a/2)*(abs(Y) <= b/2)  
-U0 = aperture.astype(np.complex128) #Como la funcion anterior retorna valores booleanos debemos pasarla a valores 
-                                    #complejos para poder tener términos de fase.
+aperture = data_bin
+U0 = aperture.astype(np.complex128)
 # ---------- A[p,q,0] por FFT ----------
 
 # Acá solo debemos aplicar la transformada de fourier a la funció U[n,m,0]
@@ -58,14 +57,14 @@ A0_ = np.fft.fftshift(A0)  # Organizamos el espectro de frecuencias para
                            # se haga de manera organizada
 # ---------- A[p,q,z] ----------
 
-def Funcion_de_transferencia(A, a, z, lam_mm): #Definimos la función de transferencia
+def Funcion_de_transferencia(A, z, lam_mm): #Definimos la función de transferencia
     k = (2*np.pi) / lam_mm 
     w= 1 - ((lam_mm*dfx)**2) * (P**2 + Q**2)
     m=1j*z*k*np.sqrt(w.astype(np.complex128))  # Permitimos resultados complejos en la raíz
     return A * np.exp(m)                       
 
 
-Az = Funcion_de_transferencia(A0_,a,z,lam_mm)  # Propagamos el espectro de entrada y
+Az = Funcion_de_transferencia(A0_,z,lam_mm)  # Propagamos el espectro de entrada y
 Az_ = np.fft.fftshift(Az)                      # De-centramos el espectro de frecuencias
                                                # por que la IFFT recibe el espectro "desorganizado"
 
@@ -92,31 +91,36 @@ I = np.abs(Uz)**2
 I_norm = I / np.max(I)  # Normalizar
 
 # ---------- Visualizar el resultado ----------
-#Fresnel
-def IF(p,lam_mm,z,X):      #Función para calcular la integral de fresnel alrededor del eje genérico "X"
-    NF=(p/2)**2/(lam_mm*z)
-    l=np.sqrt(2*NF)*(1-(2*X)/p)
-    u=np.sqrt(2*NF)*(1+(2*X)/p)
-    Su, Cu=fresnel(u)
-    Sl, Cl=fresnel(l)
-    return (1/np.sqrt(2))*(Cl+Cu)-(1j/np.sqrt(2))*(Sl+Su)
-def amplitud(a,lam_mm,z,X,Y):
-    k=2*np.pi/lam_mm
-    amp=(np.exp(1j*(k*z))/1j)*IF(a,lam_mm,z,X)*IF(b,lam_mm,z,Y)
-    amp_max=np.max(amp)
-    return amp/amp_max
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12,6))
 extent = [-Lx/2, Lx/2, -Ly/2, Ly/2] #Dominio espacial
-# Expresión analítica (ax1)
-ax1.set_title(f"|$U(x,y,z)|^2$ z = {z} mm (Expresión analítica)")
+"""
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12,6))
+# Campo de entrada (ax1)
+ax1.set_title(f"|$U(x,y,0)|^2$")
 ax1.set_xlabel("x (mm)")
 ax1.set_ylabel("y (mm)")
-im1=ax1.imshow(abs(amplitud(a,lam_mm,z,X,Y))**2,cmap="grey", extent=extent, origin='lower')
+im1=ax1.imshow(np.abs(U0)**2,cmap="grey", extent=extent, origin='lower')
 # Espectro angular (ax2)
-im2 = ax2.imshow(I_norm, cmap="grey", extent=extent, origin='lower')
-ax2.set_title(f"|$U(x,y,z)|^2$ z = {z} mm (Espectro angular numérico)")
+im2 = ax2.imshow(I_norm, cmap="grey", extent=extent, origin='lower',vmin=0, vmax=1)
+ax2.set_title(f"|$U(x,y,z)|^2$ z = {z} mm")
 ax2.set_xlabel("x (mm)")
 ax2.set_ylabel("y (mm)")
 fig.subplots_adjust(left=0.09,right=1.01)
-fig.colorbar(im2, ax=[ax1, ax2], label="Intensidad Normalizada")
+fig.colorbar(im1, ax=[ax1, ax2], label="Intensidad Normalizada")
 plt.show()
+"""
+"""
+#--------- Para guardar imágenes del plot campo propagado
+# Espectro angular (ax2)
+plt.imshow(I_norm, cmap="grey", extent=extent, origin='lower',vmin=0, vmax=1)
+plt.title(f"|$U(x,y,z)|^2$ z = {z} mm")
+plt.xlabel("x (mm)")
+plt.ylabel("y (mm)")
+plt.savefig(r"Practicas\Practica_01\Punto 3\plots\250mm.png", dpi=300)
+"""
+#------Para guardar imágenes del campo
+"""
+matriz_escalada = np.flipud(I_norm * 255)
+matriz_uint8 = matriz_escalada.astype(np.uint8)
+imagen = Image.fromarray(matriz_uint8)
+imagen.save(r"Practicas\Practica_01\Punto 3\imágenes\300mm.png")
+"""
