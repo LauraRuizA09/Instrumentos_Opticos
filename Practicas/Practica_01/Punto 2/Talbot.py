@@ -10,19 +10,21 @@ from matplotlib.figure import Figure
 # ===================================================================
 
 
-# --- Parámetros de la rejilla y la longitud de onda ---
-k_grating = 10
-T = 1 / k_grating  # Periodo en mm
-lam_nm = 633  # Longitud de onda en nanómetros
-lam_mm = lam_nm * 1e-6  # Conversión a milímetros
+# --- Parámetros Fisicos ---
 
-# --- Parámetros de muestreo y ventana ---
-Nx = 2048 # muestras
-Lx = 4  # tamaño físico de la ventana (mm)
-dx = Lx / Nx   # paso espacial Δx
-Ny = Nx
-Ly = 4
-dy = Ly / Ny
+k_grating = 10              # Frecuencia espacial de la rejilla (ciclos/mm)
+T = 1 / k_grating           # Periodo en mm
+lam_nm = 633                # Longitud de onda en nanómetros
+lam_mm = lam_nm * 1e-6      # Conversión a milímetros
+
+# --- Parámetros de muestreo ---
+
+Nx = 2048                   # Muestras en x
+Lx = 4                      # Tamaño físico de la ventana en x (mm)
+dx = Lx / Nx                # Paso espacial Δx
+Ny = Nx                     # Muestras en y
+Ly = 4                      # Tamaño físico de la ventana en y (mm)   
+dy = Ly / Ny                # Paso espacial Δy
 
 # ===================================================================
 #                  Configuración distancias TALBOT
@@ -37,7 +39,7 @@ def phase_reversed(L, lam, N):
     return ((2 * N + 1) * (L**2)) / lam
 
 def subimagenes_talbot(L, lam, N):
-    #Calcula la distancia para una autoimagen fraccional de Talbot
+    #Calcula la distancia para una autoimagen de Talbot (Fase de pi medios)
     return ((N - 1/2) * (L**2)) / lam
 
 # ===================================================================
@@ -81,9 +83,32 @@ def run_simulation():
     else:
         return
 
+
+    # Se calcula la distancia mínima 'z' requerida para la validez numérica
+    z_min = (Nx * dx**2) / lam_mm
+    
+    #Este paso realmente NO es necesario ya que la minima distancia talbot ya cumple con la condicion
+    # pero se deja para referencia en caso de querer cambiar parametros y que no se cumpla
+
+    
+    # Se verifica si la z calculada cumple la condición de muestreo de Fresnel
+    if z < z_min:
+        messagebox.showwarning("Advertencia de Validez", 
+                               f"La distancia z = {z:.2f} mm no cumple la condición de Fresnel (z >= {z_min:.2f} mm).\n\n"
+                               "Los resultados pueden presentar aliasing y no ser precisos. "
+                               "Intenta con un N más grande o ajusta los parámetros de muestreo.")
+        # Se decide no detener la simulación para permitir la visualización del error, 
+        # pero se podría agregar un 'return' aquí si se deseara.
+    # --- FIN DE LA MODIFICACIÓN ---
+
+    print(f"Calculando patrón de difracción para z = {z:.4f} mm (N={N})")
+
+
 # ===================================================================
 #                         Simulación de Propagación
 # ===================================================================
+
+    #Parametros de entrada
     n0 = np.arange(Nx) - Nx // 2
     m0 = np.arange(Ny) - Ny // 2
     x0 = n0 * dx
@@ -93,12 +118,14 @@ def run_simulation():
     aperture = (np.mod(X0, T) < T / 2).astype(float)
     U0 = aperture.astype(np.complex128)
     
+    #Parámetros de salida
     dx_ = lam_mm * z / (Nx * dx)
     dy_ = lam_mm * z / (Ny * dy)
     x = n0 * dx_
     y = m0 * dy_
     X, Y = np.meshgrid(x, y)
     
+    #Metodo de trasnfrormada de Fresnel
     Uprima = fase_esf_parax(U0, z, X0, Y0)
     Udobleprima = (dx * dy) * np.fft.fft2(Uprima)
     Udobleprimaorga = np.fft.fftshift(Udobleprima)
@@ -120,7 +147,18 @@ def run_simulation():
     ax2.set_title(f"Patrón de difracción a z={z:.4f} mm\n({title_type})")
     ax2.set_xlabel("x (mm)")
     ax2.set_ylabel("y (mm)")
-    ax2.imshow(I_norm, cmap="gray", extent=[-Lx/2, Lx/2, -Ly/2, Ly/2], origin='lower')
+    
+    # La siguiente línea calcula la extensión física TOTAL del campo de salida.
+    # Es correcto usarla en imshow para que los píxeles se mapeen a las coordenadas correctas.
+    extent_salida = [-Nx * dx_ / 2, Nx * dx_ / 2, -Ny * dy_ / 2, Ny * dy_ / 2]
+    ax2.imshow(I_norm, cmap="gray", extent=extent_salida, origin='lower')
+    
+    # --- INICIO DE LA MODIFICACIÓN ---
+    # Estas dos líneas FIJAN la ventana de visualización al mismo tamaño de la entrada,
+    # resolviendo el problema del "zoom" o alejamiento.
+    ax2.set_xlim(-Lx/2, Lx/2)
+    ax2.set_ylim(-Ly/2, Ly/2)
+    # --- FIN DE LA MODIFICACIÓN ---
     
     fig.canvas.draw()
     fig.canvas.flush_events()
@@ -155,6 +193,7 @@ Button(control_frame, text="Simular", command=run_simulation).pack(pady=10)
 
 # Panel de gráficas
 fig = Figure(figsize=(10, 6), dpi=100)
+fig.tight_layout(pad=3.0) # Añadido para mejor espaciado de títulos
 ax1 = fig.add_subplot(121)
 ax2 = fig.add_subplot(122)
 
