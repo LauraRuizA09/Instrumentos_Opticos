@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 #                       Cargar la imagen                         
 # ===================================================================
 
-imagen=Image.open(r"/home/laura/Documentos/GitHub/Instrumentos_Opticos/Practicas/Practica_01/Punto 3/imágenes/300mm.png").convert('L')         # Se carga en escala de grises
+imagen=Image.open(r"/home/laura/Documentos/GitHub/Instrumentos_Opticos/Practicas/Practica_01/Punto 04/Mediciones Laboratorio/26.png").convert('L')         # Se carga en escala de grises
 data=np.sqrt((np.flipud(np.array(imagen))))                                                        # Se convierte en un numpy array y se voltea para que los ejes de pixel del método imshow y espaciales coincidan                                                                                                  # Se calcula o se define el umbral para la binarización
 data_bin=data/np.max(data)                                                    # Se aplica el umbral de binarización
 
@@ -19,9 +19,11 @@ data_bin=data/np.max(data)                                                    # 
 #                       Metodo Espectro Angular
 # ===================================================================
 
-z = 300                              # Distancia de propagación en mm
+z = 26                             # Distancia de propagación en mm
 lam_nm = 633                         # Longitud de onda en nanómetros
 lam_mm = lam_nm * 1e-6               # Conversión a milímetros
+k = 2 * np.pi / lam_mm               # Número de onda en mm^-1
+
 
 #-----Muestreo Horizontal-------
 
@@ -59,7 +61,17 @@ FX, FY = np.meshgrid(fx, fy)
 # ===================================================================
 
 aperture = data_bin
-U0 = aperture.astype(np.complex128)
+
+# Fase esférica
+R = 10000  # Radio de curvatura de la onda esférica en mm.
+         # R > 0 para onda divergente, R < 0 para onda convergente.
+
+# Creación del término de fase esférica
+fase_esferica = np.exp(1j * k / (2 * R) * (X**2 + Y**2))
+
+# El campo inicial ahora es la apertura multiplicada por la fase esférica
+U0 = aperture.astype(np.complex128) * fase_esferica
+#U0 = aperture.astype(np.complex128) 
 
 # ===================================================================
 #                           A[p,q,0] por FFT 
@@ -81,8 +93,8 @@ A0_ = np.fft.fftshift(A0)  # Organizamos el espectro de frecuencias para
 
 def Funcion_de_transferencia(A, z, lam_mm): #Definimos la función de transferencia
     k = (2*np.pi) / lam_mm 
-    w= 1 - ((lam_mm*dfx)**2) * (P**2 + Q**2)
-    m=-1j*z*k*np.sqrt(w.astype(np.complex128))  # Permitimos resultados complejos en la raíz
+    w = 1 - ((lam_mm*dfx)**2) * (P**2 + Q**2)
+    m = -1j*z*k*np.sqrt(w.astype(np.complex128))  # Permitimos resultados complejos en la raíz
     return A * np.exp(m)                       
 
 
@@ -124,13 +136,14 @@ I_norm = I / np.max(I)  # Normalizar
 # ===================================================================
 
 extent = [-Lx/2, Lx/2, -Ly/2, Ly/2] #Dominio espacial
-"""
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12,6))
+
 # Campo de entrada (ax1)
 ax1.set_title(f"|$U(x,y,0)|^2$")
 ax1.set_xlabel("x (mm)")
 ax1.set_ylabel("y (mm)")
 im1=ax1.imshow(np.abs(U0)**2,cmap="grey", extent=extent, origin='lower')
+
 # Espectro angular (ax2)
 im2 = ax2.imshow(I_norm, cmap="grey", extent=extent, origin='lower',vmin=0, vmax=1)
 ax2.set_title(f"|$U(x,y,z)|^2$ z = {z} mm")
@@ -139,8 +152,8 @@ ax2.set_ylabel("y (mm)")
 fig.subplots_adjust(left=0.09,right=1.01)
 fig.colorbar(im1, ax=[ax1, ax2], label="Intensidad Normalizada")
 plt.show()
-"""
 
+"""
 #--------- Para guardar imágenes del plot campo propagado
 # Espectro angular (ax2)
 plt.imshow(I_norm, cmap="grey", extent=extent, origin='lower',vmin=0, vmax=1)
@@ -148,7 +161,7 @@ plt.title(f"|$U(x,y,z)|^2$ z = {z} mm")
 plt.xlabel("x (mm)")
 plt.ylabel("y (mm)")
 plt.savefig(r"/home/laura/Documentos/GitHub/Instrumentos_Opticos/Practicas/Practica_01/Punto 04/Mediciones Laboratorio/prueba.png", dpi=300)
-
+"""
 #------Para guardar imágenes del campo
 """
 matriz_escalada = np.flipud(I_norm * 255)
