@@ -19,7 +19,7 @@ data_bin=data/np.max(data)                                                    # 
 #                       Metodo Espectro Angular
 # ===================================================================
 
-z = 26                             # Distancia de propagación en mm
+z = 66                             # Distancia de propagación en mm
 lam_nm = 633                         # Longitud de onda en nanómetros
 lam_mm = lam_nm * 1e-6               # Conversión a milímetros
 k = 2 * np.pi / lam_mm               # Número de onda en mm^-1
@@ -28,14 +28,14 @@ k = 2 * np.pi / lam_mm               # Número de onda en mm^-1
 #-----Muestreo Horizontal-------
 
 Nx = np.shape(data)[1]               # número de muestras por eje (es mejor utilizar un numero mayor de muestras para mejorar el muestreo)
-Lx= 5.8                              # tamaño físico de la ventana (mm)
+Lx= 6.66                              # tamaño físico de la ventana (mm)
 dx = Lx / Nx                         # paso espacial Δ
 dfx = 1 / Lx                         # paso en frecuencia Δf
 
 #-----Muestreo Vertical-------
 
 Ny = np.shape(data)[0]               # número de muestras por eje (es mejor utilizar un numero mayor de muestras para mejorar el muestreo)
-Ly = 5.8                             # tamaño físico de la ventana (mm)
+Ly = 5.32                            # tamaño físico de la ventana (mm)
 dy = Ly / Ny                         # paso espacial Δ
 dfy = 1 / Ly                         # paso en frecuencia Δf
 
@@ -70,8 +70,8 @@ R = 10000  # Radio de curvatura de la onda esférica en mm.
 fase_esferica = np.exp(1j * k / (2 * R) * (X**2 + Y**2))
 
 # El campo inicial ahora es la apertura multiplicada por la fase esférica
-U0 = aperture.astype(np.complex128) * fase_esferica
-#U0 = aperture.astype(np.complex128) 
+#U0 = aperture.astype(np.complex128) * fase_esferica
+U0 = aperture.astype(np.complex128) 
 
 # ===================================================================
 #                           A[p,q,0] por FFT 
@@ -93,7 +93,7 @@ A0_ = np.fft.fftshift(A0)  # Organizamos el espectro de frecuencias para
 
 def Funcion_de_transferencia(A, z, lam_mm): #Definimos la función de transferencia
     k = (2*np.pi) / lam_mm 
-    w = 1 - ((lam_mm*dfx)**2) * (P**2 + Q**2)
+    w = 1 - ((lam_mm)**2) * ((P*dfx)**2 + (Q*dfy)**2)
     m = -1j*z*k*np.sqrt(w.astype(np.complex128))  # Permitimos resultados complejos en la raíz
     return A * np.exp(m)                       
 
@@ -111,7 +111,7 @@ Az_ = np.fft.fftshift(Az)                      # De-centramos el espectro de fre
 # del espacio de frecuencias al espacio dimensional por eso utilizamos
 # la transformada inversa de fourier de la funcion del espectro angular
 
-Uz = (np.fft.ifft2(Az_)) * ((dfx)**2) 
+Uz = (np.fft.ifft2(Az_)) * ((dfx*dfy))
 
 # ===================================================================
 #                   Re-ordenar el campo U[n,m,z]
