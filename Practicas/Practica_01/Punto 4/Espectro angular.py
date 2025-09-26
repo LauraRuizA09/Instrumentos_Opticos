@@ -1,0 +1,161 @@
+import numpy as np
+from PIL import Image
+import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
+
+# ===================================================================
+#      Simulación Espectro Angular para un campo U de una imagen
+# ===================================================================
+
+
+# ===================================================================
+#                       Cargar la imagen                         
+# ===================================================================
+
+imagen=Image.open(r"Practicas\Practica_01\Punto 3\Transm_E05.png").convert('L')         # Se carga en escala de grises
+data=np.sqrt(np.flipud(np.array(imagen)))                                                        # Se convierte en un numpy array y se voltea para que los ejes de pixel del método imshow y espaciales coincidan                                                                                                 # Se calcula o se define el umbral para la binarización
+data_bin=data/np.max(data)                                                   # Se aplica el umbral de binarización
+
+# ===================================================================
+#                       Parámetros Físicos
+# ===================================================================
+
+Z = 250                              # Distancia de propagación en mm
+lam_nm = 633                         # Longitud de onda en nanómetros
+lam_mm = lam_nm * 1e-6               # Conversión a milímetros
+Lx= 5.8
+Ly= 5.8
+# ===================================================================
+#                        Campo inicial U(x,y,0)
+# ===================================================================
+
+aperture = data_bin
+U0 = aperture.astype(np.complex128)
+
+def Funcion_de_transferencia(FX,FY,A, d, lam_mm): #Definimos la función de transferencia
+    k = (2*np.pi) / lam_mm 
+    w= 1 - ((lam_mm)**2) * ((FX)**2 + (FY)**2)
+    m=1j*d*k*np.sqrt(w.astype(np.complex128))  # Permitimos resultados complejos en la raíz
+    return A * np.exp(m)
+
+def Espectro_Angular(Lx,Ly,U0,z,lam_mm):
+    # ===================================================================
+    #                       Muestreo del campo
+    # ===================================================================
+
+    #-----Muestreo Horizontal-------
+
+    Nx = np.shape(U0)[1]               # número de muestras por eje (es mejor utilizar un numero mayor de muestras para mejorar el muestreo)
+    dx = Lx / Nx                         # paso espacial Δx
+    dfx = 1 / Lx                         # paso en frecuencia Δfx
+
+    #-----Muestreo Vertical-------
+
+    Ny = np.shape(U0)[0]               # número de muestras por eje (es mejor utilizar un numero mayor de muestras para mejorar el muestreo)
+    dy = Ly / Ny                         # paso espacial Δy
+    dfy = 1 / Ly                         # paso en frecuencia Δfy
+
+    # ---------- Coordenadas espaciales ----------
+
+    n = np.arange(Nx) - Nx//2            # Contadores
+    m = np.arange(Ny) - Ny//2
+    x = n * dx                           # x = Δx * n
+    y = m * dy                           # y = Δy * m
+    X, Y = np.meshgrid(x, y)
+
+    # ---------- Coordenadas de frecuencia ----------
+
+    p = np.arange(Nx) - Nx//2            #Contadores
+    q = np.arange(Ny) - Ny//2
+    P,Q=np.meshgrid(p,q)
+    fx = p * dfx                         # fx = Δfx * p   
+    fy = q * dfy                         # fy = Δfy * q
+    FX, FY = np.meshgrid(fx, fy)
+    # ===================================================================
+    #                           A[p,q,0] por FFT 
+    # ===================================================================
+
+    # Acá solo debemos aplicar la transformada de fourier a la funció U[n,m,0]
+    # y multiplicarla por Δx*Δy, ya que segun la simplificacion y el analisis 
+    # matematicos y fisico llegamos a esa relacion de aplicar FFT, computacionalmente
+    # usamos fft2 debido a que estamos trabajando en dos dimensiones
+    A0 = np.fft.fft2(U0) * ((dx*dy)) #Cálculo del espectro de entrada
+    A0_ = np.fft.fftshift(A0)  # Organizamos el espectro de frecuencias para
+                                # que la multiplicación por la función de transferencia
+                                # se haga de manera organizada
+    
+    # ===================================================================                          
+    #           A[p,q,z] por Función de Transferencia 
+    # ===================================================================
+    Az = Funcion_de_transferencia(FX,FY,A0_,z,lam_mm)  # Propagamos el espectro de entrada y
+                                                 # Propagamos el espectro de entrada y
+    Az_ = np.fft.fftshift(Az)                      # De-centramos el espectro de frecuencias
+                                               # por que la IFFT recibe el espectro "desorganizado"
+    # ===================================================================
+    #                      U[n,m,z] por IFFT 
+    # ===================================================================
+    # Aca para obtener la funcion del campo a la salida U[n,m,z] debemos pasar 
+    # del espacio de frecuencias al espacio dimensional por eso utilizamos
+    # la transformada inversa de fourier de la funcion del espectro angular
+    Uz = (np.fft.ifft2(Az_)) * ((dfx*dfy)) 
+
+    # ===================================================================
+    #                   Re-ordenar el campo U[n,m,z]
+    # ===================================================================
+    # Por la teoria vista de analisis de muestreo vimos que realmente no estamos calculando 
+    # el orden correcto de nuestro campo a la salida es decir que este, está en posiciones incorrectas
+    # por ende debemos hacer algo para organizarlo, debemos shiftearlo para que ahora sí esté centrado.
+    # Usamos fftshift para centrar el campo en el dominio espacial
+    return Uz
+
+Uz=Espectro_Angular(Lx,Ly,U0,Z,lam_mm)
+
+
+# ===================================================================
+#                       Intensidad I[x,y,z]
+# ===================================================================
+
+I = np.abs(Uz)**2
+I_norm =I/np.max(I)
+
+# ===================================================================
+#                   Visualizar el resultado 
+# ===================================================================
+
+
+extent = [-Lx/2, Lx/2, -Ly/2, Ly/2] #Dominio espacial
+
+"""
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12,6))
+# Campo de entrada (ax1)
+ax1.set_title(r"$\Re\{U(x,y,250mm)\}$")
+ax1.set_xlabel("x (mm)")
+ax1.set_ylabel("y (mm)")
+im1=ax1.imshow(Uz.real,cmap="grey", extent=extent, origin='lower')
+# Espectro angular (ax2)
+im2 = ax2.imshow(Uz.imag, cmap="bone", extent=extent, origin='lower')
+ax2.set_title(r"$\Im\{U(x,y,250mm)\}$")
+ax2.set_xlabel("x (mm)")
+ax2.set_ylabel("y (mm)")
+bar1=fig.colorbar(im1,label=r"$\Re\{U\}   (u.a)$")
+bar2=fig.colorbar(im2,label=r"$\Im\{U\}   (u.a)$")
+plt.show()
+"""
+
+
+#"""
+#--------- Para guardar imágenes del plot campo propagado
+# Espectro angular (ax2)
+plt.imshow(I_norm, cmap="grey", extent=extent, origin='lower',vmin=0, vmax=1)
+plt.title(f"|$U(x,y,z)|^2$ z = {Z} mm")
+plt.xlabel("x (mm)")
+plt.ylabel("y (mm)")
+plt.savefig(r"Practicas\Practica_01\Punto 4\T05 Intensidad Campo propagado.png", dpi=300)
+#"""
+#------Para guardar imágenes del campo
+"""
+matriz_escalada = np.flipud(I_norm * 255)
+matriz_uint8 = matriz_escalada.astype(np.uint8)
+imagen = Image.fromarray(matriz_uint8)
+imagen.save(r"Practicas\Practica_01\Punto 3\imágenes\300mm.png")
+"""
