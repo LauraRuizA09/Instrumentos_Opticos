@@ -19,11 +19,11 @@ lam_mm = lam_nm * 1e-6      # Conversión a milímetros
 
 # --- Parámetros de muestreo ---
 
-Nx = 2048                   # Muestras en x
-Lx = 4                      # Tamaño físico de la ventana en x (mm)
+Nx = 3000                   # Muestras en x
+Lx = 2                      # Tamaño físico de la ventana en x (mm)
 dx = Lx / Nx                # Paso espacial Δx
 Ny = Nx                     # Muestras en y
-Ly = 4                      # Tamaño físico de la ventana en y (mm)   
+Ly = 2                      # Tamaño físico de la ventana en y (mm)   
 dy = Ly / Ny                # Paso espacial Δy
 
 # ===================================================================
