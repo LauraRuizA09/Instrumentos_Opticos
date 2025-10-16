@@ -1,4 +1,4 @@
-# 🔭 Repositorio Instrumentos ópticos 🌌
+# 🔭 Instrumentos ópticos 🌌
 
 Este repositorio contiene prácticas y proyectos de la materia Instrumentos Opticos
 

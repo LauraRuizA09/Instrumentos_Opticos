@@ -32,11 +32,11 @@ dy = Ly / Ny                # Paso espacial Δy
 
 def talbot_distance(L, lam, N):
     #Calcula la distancia para una autoimagen de Talbot normal
-    return 2 * (L**2) / lam * N
+    return (2 * (L**2)) / lam * N
 
 def phase_reversed(L, lam, N):
     #Calcula la distancia para una autoimagen de Talbot con cambio de fase de pi
-    return ((2 * N + 1) * (L**2)) / lam
+    return (((2 * N) + 1) * (L**2)) / lam
 
 def subimagenes_talbot(L, lam, N):
     #Calcula la distancia para una autoimagen de Talbot (Fase de pi medios)
@@ -62,7 +62,7 @@ def escala(U, z, X_coord, Y_coord):
 def run_simulation():
     try:
         N = int(n_entry.get())
-        if N <= 0:
+        if N < 0:
             messagebox.showerror("Error", "N debe ser un entero positivo.")
             return
     except ValueError:
@@ -76,7 +76,7 @@ def run_simulation():
         title_type = f"Autoimagen de Talbot (N={N})"
     elif selection == "phase_reversed":
         z = phase_reversed(T, lam_mm, N)
-        title_type = f"Imagen con fase revertida (N={N})"
+        title_type = f"Imagen con fase Invertida (N={N})"
     elif selection == "subimagenes_talbot":
         z = subimagenes_talbot(T, lam_mm, N)
         title_type = f"Subimagen de Talbot (N={N})"
@@ -152,13 +152,9 @@ def run_simulation():
     # Es correcto usarla en imshow para que los píxeles se mapeen a las coordenadas correctas.
     extent_salida = [-Nx * dx_ / 2, Nx * dx_ / 2, -Ny * dy_ / 2, Ny * dy_ / 2]
     ax2.imshow(I_norm, cmap="gray", extent=extent_salida, origin='lower')
-    
-    # --- INICIO DE LA MODIFICACIÓN ---
-    # Estas dos líneas FIJAN la ventana de visualización al mismo tamaño de la entrada,
-    # resolviendo el problema del "zoom" o alejamiento.
     ax2.set_xlim(-Lx/2, Lx/2)
     ax2.set_ylim(-Ly/2, Ly/2)
-    # --- FIN DE LA MODIFICACIÓN ---
+
     
     fig.canvas.draw()
     fig.canvas.flush_events()
@@ -180,7 +176,7 @@ Label(control_frame, text="Selecciona el tipo de imagen:").pack(anchor="w")
 
 function_choice = StringVar(value="talbot_distance")
 Radiobutton(control_frame, text="Autoimagen (z_T = 2L²/λ * N)", variable=function_choice, value="talbot_distance").pack(anchor="w")
-Radiobutton(control_frame, text="Fase Revertida (z_T = (2N+1)L²/λ)", variable=function_choice, value="phase_reversed").pack(anchor="w")
+Radiobutton(control_frame, text="Fase Invertida (z_T = (2N+1)L²/λ)", variable=function_choice, value="phase_reversed").pack(anchor="w")
 Radiobutton(control_frame, text="Subimagen (z_T = (N-1/2)L²/λ)", variable=function_choice, value="subimagenes_talbot").pack(anchor="w")
 
 Label(control_frame, text="").pack()
