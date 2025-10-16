@@ -1,10 +1,6 @@
-# Actividad 1: Simulación y Análisis de un Procesador Óptico
+# Actividad 1: 💻 Simulación y Análisis de un Procesador Óptico 🔍
 
-Este repositorio contiene el desarrollo analítico y la simulación numérica de un sistema de procesamiento óptico interferométrico. El objetivo es modelar el comportamiento de la luz a través de dos trayectorias distintas y determinar los campos ópticos resultantes en las cámaras de detección.
-
-## Objetivo del Sistema
-
-Analizaremos el sistema de procesamiento óptico presentado en la siguiente figura, desglosando su funcionamiento en base a los principios de la óptica de Fourier y la difracción escalar.
+Analizaremos el sistema de procesamiento óptico presentado en la siguiente figura.
 
 ![Figura 1. Sistema de procesamiento óptico](montaje.png)
 
