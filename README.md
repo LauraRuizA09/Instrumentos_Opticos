@@ -1,4 +1,4 @@
-# 🔭 Repositorio Instrumentos ópticos 🌌
+# 🔭 Instrumentos ópticos 🌌
 
 Este repositorio contiene prácticas y proyectos de la materia Instrumentos Opticos
 
@@ -9,7 +9,7 @@ Este repositorio contiene prácticas y proyectos de la materia Instrumentos Opti
 ## 📂 Practicas 🔦
 - [Practica 1](Practicas/Practica_01/#Punto_01.py) → Difracción Escalar Discreta
 
-- [Practica 2](Practicas/Practica_02/#Punto_01.py) → Difracción Escalar Discreta
+- [Practica 2](Practicas/Practica_02) → Difracción Escalar Discreta
 
 ## 📂 Proyectos 📊
 - [Proyecto 1](Proyecto) → Por definir
