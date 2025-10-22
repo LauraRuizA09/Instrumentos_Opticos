@@ -197,7 +197,7 @@ def transmitancia_entrada(tipo_de_objeto):
     
     elif tipo_de_objeto == 'imagen':
         # Cargar una imagen en escala de grises y normalizarla
-        imagen = Image.open('Practicas/Practica_02/Actividad_1/Noise images/Noise (1).png').convert('L')
+        imagen = Image.open('Practicas/Practica_02/Actividad_1/Noise images/Noise (18).png').convert('L')
         imagen = imagen.resize((Nx, Ny))  # Redimensionar la imagen al tamaño Nx x Ny
         U0 = np.array(imagen) / 255.0  # Normalizar a [0, 1]
         U0 = U0.astype(np.complex128)  # Convertir a tipo complejo para incluir fase si es necesario
@@ -209,19 +209,7 @@ def transmitancia_entrada(tipo_de_objeto):
 
 # Obtener el campo de entrada
 
-campo_entrada = transmitancia_entrada('imagen')   #  S(ξ,η)
-
-#Graficar del campo de entrada
-plt.figure(figsize=(7, 6))
-intensity = np.abs(campo_entrada)**2
-extent = [-Lx/2, Lx/2, -Ly/2, Ly/2] #Dominio espacial
-im_int = plt.imshow(intensity, cmap='gray', extent=extent, origin='lower', aspect='equal')
-plt.colorbar(im_int, label='Intensidad Transmitida |U0|^2')
-plt.xlabel('ξ (mm)')
-plt.ylabel('η (mm)')
-plt.title('Campo de Entrada S(ξ,η) - Intensidad')
-plt.grid(False)
-plt.show()
+campo_entrada_1 = transmitancia_entrada('imagen')   #  S(ξ,η)
 
 def propagar_ABCD(U1, A, B, C, D, lam, dx1, dy1):
 
@@ -268,41 +256,71 @@ def propagar_ABCD(U1, A, B, C, D, lam, dx1, dy1):
 
     return U2, x_mesh, y_mesh, dx2, dy2
 
-S1_campo, S1_x_mesh, S1_y_mesh, S1_dx, S1_dy = propagar_ABCD(campo_entrada, A_1, B_1, C_1, D_1, lam, dx, dy)
-S2_campo, S2_x_mesh, S2_y_mesh, S2_dx, S2_dy = propagar_ABCD(campo_entrada, A_2, B_2, C_2, D_2, lam, dx, dy)
+
+S1_campo, S1_x_mesh, S1_y_mesh, S1_dx, S1_dy = propagar_ABCD(campo_entrada_1, A_1, B_1, C_1, D_1, lam, dx, dy)
+# se debe multiplicar por la transmitaancia t(x,y) pero en este caso es 1
+
+#Definir los campos de entrada para la segund parte de la trayectoria 01
+
+campo_entrada_2 =  S1_campo 
+
+S2_campo, S2_x_mesh, S2_y_mesh, S2_dx, S2_dy = propagar_ABCD(campo_entrada_2, A_2, B_2, C_2, D_2, lam, dx, dy)
+
 
 
 # ===================================================================
-#                 GRAFICAR S1_campo y S2_campo
+#               GRAFICAR CAMPO DE ENTRADA Y SALIDA 
 # ===================================================================
 
-# --- Graficar Intensidad de S1 ---
+fig, axes = plt.subplots(1, 3, figsize=(21, 6)) # Ajusta figsize si es necesario (más ancho ahora)
 
-plt.figure(figsize=(7, 6))
+# --- Graficar del campo de entrada---
+intensity = np.abs(campo_entrada_1)**2
+extent_in = [-Lx/2, Lx/2, -Ly/2, Ly/2] # Renombrado para claridad
+im_int = axes[0].imshow(intensity, cmap='gray', extent=extent_in, origin='upper', aspect='equal')
+fig.colorbar(im_int, ax=axes[0], label='Intensidad Transmitida |U0|^2', shrink=0.8)
+axes[0].set_xlabel('ξ (mm)')
+axes[0].set_ylabel('η (mm)')
+axes[0].set_title('Campo de Entrada S(ξ,η)')
+axes[0].grid(False)
+
+# --- Graficar Intensidad de S1_campo---
 intensity_S1 = np.abs(S1_campo)**2
-# Usar las coordenadas devueltas por propagar_ABCD para extent
-extent_S1 = [S1_x_mesh[0,0], S1_x_mesh[0,-1], S1_y_mesh[0,0], S1_y_mesh[-1,0]]
-im_s1 = plt.imshow(intensity_S1, cmap='viridis', extent=extent, origin='lower', aspect='equal')
-plt.colorbar(im_s1, label='Intensidad |S1|^2')
-plt.xlabel('x (mm)') # Coordenadas del plano intermedio/salida
-plt.ylabel('y (mm)')
-plt.title('Campo Resultado - Trayectoria 1 (Intensidad)')
-plt.grid(False)
-plt.xlim(-0.5, 0.5) # Muestra de -5mm a +5mm en x (ajusta según veas necesario)
-plt.ylim(-0.5, 0.5) # Muestra de -5mm a +5mm en y
-plt.show()
 
-# --- Graficar Intensidad de S2 ---
+# Límites del espejo M1 
+ancho_m1_mm = 10.4
+alto_m1_mm = 5.8
 
-#plt.figure(figsize=(7, 6))
-#intensity_S2 = np.abs(S2_campo)**2
-# Usar las coordenadas devueltas por propagar_ABCD para extent
-#extent_S2 = [S2_x_mesh[0,0], S2_x_mesh[0,-1], S2_y_mesh[0,0], S2_y_mesh[-1,0]]
-#im_s2 = plt.imshow(intensity_S2, cmap='plasma', # Usar otro cmap si quieres
-#                   extent=extent_S2, origin='lower', aspect='equal')
-#plt.colorbar(im_s2, label='Intensidad |S2|^2')
-#plt.xlabel('x\' (mm)') # Coordenadas del plano intermedio/salida
-#plt.ylabel('y\' (mm)')
-#plt.title('Campo Resultado - Trayectoria 2 (Intensidad)')
-#plt.grid(False)
-#plt.show()
+# Usas las dimensiones de la cámara para definir el extent directamente
+extent_cam1 = [-ancho_m1_mm/2, ancho_m1_mm/2, -alto_m1_mm/2, alto_m1_mm/2]
+
+# Calcular el extent correcto para S1_campo usando sus coordenadas
+extent_S1 = [S1_x_mesh.min(), S1_x_mesh.max(), S1_y_mesh.min(), S1_y_mesh.max()]
+im_s1 = axes[1].imshow(intensity_S1, cmap='viridis', extent=extent_in, origin='lower', aspect='equal')
+fig.colorbar(im_s1, ax=axes[1], label='Intensidad |S1|^2', shrink=0.8)
+axes[1].set_xlabel('x (mm)') # Coordenadas del plano M1
+axes[1].set_ylabel('y (mm)')
+axes[1].set_title('Campo en M1 (Trayectoria 1)') # Título más descriptivo
+axes[1].grid(False)
+
+# --- Graficar Intensidad de S2_campo ---
+intensity_S2 = np.abs(S2_campo)**2 # Renombrado para claridad
+
+# Límites de la cámara CAM1
+ancho_cam1_mm = 4640 * 3.8e-3 # Ancho físico en mm
+alto_cam1_mm = 3506 * 3.8e-3  # Alto físico en mm
+
+# Usas las dimensiones de la cámara para definir el extent directamente
+extent_cam1 = [-ancho_cam1_mm/2, ancho_cam1_mm/2, -alto_cam1_mm/2, alto_cam1_mm/2]
+
+im_s2 = axes[2].imshow(intensity_S2, cmap='viridis', extent=extent_cam1, origin='lower', aspect='equal') # Usando extent_cam1
+fig.colorbar(im_s2, ax=axes[2], label='Intensidad |S2|^2', shrink=0.8) # Cambiado a intensity_S2, im_s2
+axes[2].set_xlabel('u (mm)') # Coordenadas del plano Cam1
+axes[2].set_ylabel('v (mm)')
+axes[2].set_title('Campo en Cam1 (Trayectoria 2)') # Título más descriptivo
+axes[2].grid(False)
+
+
+# --- Ajustar espaciado y mostrar la figura completa ---
+plt.tight_layout() # Ajusta el espaciado para evitar superposiciones
+plt.show() # Muestra la figura con los tres subplots
