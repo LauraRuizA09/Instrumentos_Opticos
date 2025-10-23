@@ -8,6 +8,7 @@ matplotlib.use('TkAgg')
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
+from matplotlib.widgets import Slider
 
 # ===================================================================
 #       Definicion de matrices de diferentes interacciones
@@ -197,7 +198,7 @@ def transmitancia_entrada(tipo_de_objeto):
     
     elif tipo_de_objeto == 'imagen':
         # Cargar una imagen en escala de grises y normalizarla
-        imagen = Image.open('Practicas/Practica_02/Actividad_1/Noise images/Noise (18).png').convert('L')
+        imagen = Image.open('Practicas/Practica_02/Actividad_1/Noise images/Noise (16).png').convert('L')
         imagen = imagen.resize((Nx, Ny))  # Redimensionar la imagen al tamaño Nx x Ny
         U0 = np.array(imagen) / 255.0  # Normalizar a [0, 1]
         U0 = U0.astype(np.complex128)  # Convertir a tipo complejo para incluir fase si es necesario
@@ -211,61 +212,67 @@ def transmitancia_entrada(tipo_de_objeto):
 
 campo_entrada_1 = transmitancia_entrada('imagen')   #  S(ξ,η)
 
-def propagar_ABCD(U1, A, B, C, D, lam, dx1, dy1):
 
-    Ny, Nx = U1.shape
-    k = 2 * np.pi / lam
-    Lx = Nx * dx1
-    Ly = Ny * dy1
+def propagar_ABCD_(U1, A, B, C, D, lam):
+
+    #Caso en el que estamos:
+    #salida_ (t(x,y)) = (np.exp(1j*k*f) / 1j*lam*f) * (np.fft.fft2(campo_entrada_1)* dx * dy)
+    #salida_t (O(u,v)) = (np.exp(-1j*k*f) / -1j*lam*f) * (np.fft.ifft2(salida_) * (Nx * Ny) * dfx * dfy)
 
     # --- Coordenadas de entrada ---
     n = np.arange(Nx) - Nx//2
     m = np.arange(Ny) - Ny//2
-    xi_vec = n * dx1
-    eta_vec = m * dy1
-    xi_mesh, eta_mesh = np.meshgrid(xi_vec, eta_vec, indexing='ij')
+    xi_vec = n * dx
+    eta_vec = m * dy
+    xi_mesh, eta_mesh = np.meshgrid(xi_vec, eta_vec, indexing='xy')
 
-    # 1. Fase cuadrática de entrada (dependiente de A)
+    # --- Cálculo de la Integral ---
+
+    # Fase cuadrática de entrada (dependiente de A)
     phase1 = (k / (2 * B)) * A * (xi_mesh**2 + eta_mesh**2)
     U_intermediate1 = U1 * np.exp(1j * phase1)
 
-    # 2. Transformada de Fourier vía FFT
-    U_shifted = np.fft.ifftshift(U_intermediate1)
-    U_fft_unscaled = np.fft.fft2(U_shifted)
-    U_intermediate2 = np.fft.fftshift(U_fft_unscaled)
+    if B > 0:
+        # El kernel corresponde a una TF
+        U_fft_unscaled = np.fft.fft2(U1) * dx * dy
+  
+    else: # B < 0
+        # El kernel corresponde a una TF inversa.
+        U_fft_unscaled = np.fft.ifft2(U1) * (Nx * Ny) * dfx * dfy
 
-    # 3. Coordenadas del plano de salida (x, y)
-    dfx = 1 / Lx
-    dfy = 1 / Ly
-    fx_vec = (np.arange(Nx) - Nx//2) * dfx
-    fy_vec = (np.arange(Ny) - Ny//2) * dfy
+
+    # Coordenadas espaciales de salida: x2 = lambda*B*fx, y2 = lambda*B*fy.
+    # El signo de B afecta correctamente la escala y posible inversión del eje.
     x_vec = fx_vec * lam * B
     y_vec = fy_vec * lam * B
-    dx2 = np.abs(x_vec[1] - x_vec[0]) # Paso de muestreo en salida
-    dy2 = np.abs(y_vec[1] - y_vec[0])
-    x_mesh, y_mesh = np.meshgrid(x_vec, y_vec, indexing='ij')
+    # Paso de muestreo en la salida. Usamos abs porque el paso siempre es positivo.
+    dx2 = np.abs(x_vec[1] - x_vec[0]) if Nx > 1 else 0
+    dy2 = np.abs(y_vec[1] - y_vec[0]) if Ny > 1 else 0
+    # Mallas de coordenadas 2D de salida. Usamos 'xy' para consistencia.
+    x_mesh, y_mesh = np.meshgrid(x_vec, y_vec, indexing='xy')
 
-    # 4. Fase cuadrática de salida (dependiente de D)
+    # Fase cuadrática de salida (dependiente de D)
     phase2 = (k / (2 * B)) * D * (x_mesh**2 + y_mesh**2)
-    U_intermediate3 = U_intermediate2 * np.exp(1j * phase2)
+    U_intermediate3 = U_fft_unscaled * np.exp(1j * phase2)
 
-    # 5. Factores globales de escala y fase
-    # Omitimos exp(ikL0) por ser fase global constante
-    pre_factor = (dx1 * dy1) / (1j * lam * B)
-    U2 = pre_factor * U_intermediate3
+    # Factores globales de escala y fase
+    # Omitimos exp(ikL0) por ser fase constante.
+    # El pre_factor se combina con el fft_scale_factor que depende de si usamos FFT o IFFT.
+    pre_factor_integral = 1 / (1j * lam * B)
+    U2 = pre_factor_integral * U_intermediate3 
 
+    # Devuelve el campo y las mallas/pasos de salida.
     return U2, x_mesh, y_mesh, dx2, dy2
 
 
-S1_campo, S1_x_mesh, S1_y_mesh, S1_dx, S1_dy = propagar_ABCD(campo_entrada_1, A_1, B_1, C_1, D_1, lam, dx, dy)
+S1_campo, S1_x_mesh, S1_y_mesh, S1_dx, S1_dy = propagar_ABCD_(campo_entrada_1, A_1, B_1, C_1, D_1, lam)
 # se debe multiplicar por la transmitaancia t(x,y) pero en este caso es 1
 
 #Definir los campos de entrada para la segund parte de la trayectoria 01
 
 campo_entrada_2 =  S1_campo 
 
-S2_campo, S2_x_mesh, S2_y_mesh, S2_dx, S2_dy = propagar_ABCD(campo_entrada_2, A_2, B_2, C_2, D_2, lam, dx, dy)
-
+S2_campo, S2_x_mesh, S2_y_mesh, S2_dx, S2_dy = propagar_ABCD_(campo_entrada_2, A_2, B_2, C_2, D_2, lam)
 
 
 # ===================================================================
@@ -281,7 +288,7 @@ im_int = axes[0].imshow(intensity, cmap='gray', extent=extent_in, origin='upper'
 fig.colorbar(im_int, ax=axes[0], label='Intensidad Transmitida |U0|^2', shrink=0.8)
 axes[0].set_xlabel('ξ (mm)')
 axes[0].set_ylabel('η (mm)')
-axes[0].set_title('Campo de Entrada S(ξ,η)')
+axes[0].set_title('Campo de Entrada $S(ξ,η)$')
 axes[0].grid(False)
 
 # --- Graficar Intensidad de S1_campo---
@@ -300,8 +307,10 @@ im_s1 = axes[1].imshow(intensity_S1, cmap='viridis', extent=extent_in, origin='l
 fig.colorbar(im_s1, ax=axes[1], label='Intensidad |S1|^2', shrink=0.8)
 axes[1].set_xlabel('x (mm)') # Coordenadas del plano M1
 axes[1].set_ylabel('y (mm)')
-axes[1].set_title('Campo en M1 (Trayectoria 1)') # Título más descriptivo
+axes[1].set_title('Campo en M1 $t(x,y)$') # Título más descriptivo
 axes[1].grid(False)
+axes[1].set_xlim(-0.05,0.05)
+axes[1].set_ylim(-0.05,0.05)
 
 # --- Graficar Intensidad de S2_campo ---
 intensity_S2 = np.abs(S2_campo)**2 # Renombrado para claridad
@@ -317,10 +326,103 @@ im_s2 = axes[2].imshow(intensity_S2, cmap='viridis', extent=extent_cam1, origin=
 fig.colorbar(im_s2, ax=axes[2], label='Intensidad |S2|^2', shrink=0.8) # Cambiado a intensity_S2, im_s2
 axes[2].set_xlabel('u (mm)') # Coordenadas del plano Cam1
 axes[2].set_ylabel('v (mm)')
-axes[2].set_title('Campo en Cam1 (Trayectoria 2)') # Título más descriptivo
+axes[2].set_title('Campo en CAM1 $O(u,v)$') # Título más descriptivo
 axes[2].grid(False)
 
 
 # --- Ajustar espaciado y mostrar la figura completa ---
 plt.tight_layout() # Ajusta el espaciado para evitar superposiciones
 plt.show() # Muestra la figura con los tres subplots
+
+
+# ===================================================================
+#              ELIMINAR RUIDO DE LA IMAGEN (CON SLIDERS)
+# ===================================================================
+
+# Campo con ruido (resultado de la propagación)
+campo_ruidoso = S2_campo  #  O(u,v)
+rows, cols = campo_ruidoso.shape # Obtener dimensiones aquí
+
+# --- Función para aplicar el filtro  ---
+def filtrar_imagenes(imagen_noisy, cutoff_val):
+    
+    # Calcular la FFT 2D de la imagen ruidosa para estar en el plano de frecuencias y hacer el filtro
+    fft_image = np.fft.fft2(imagen_noisy)
+                         
+    # Crea coordenadas de malla para el filtro
+    center_x_local, center_y_local = cols // 2, rows // 2 
+    x_mask_coords, y_mask_coords = np.meshgrid(np.arange(cols), np.arange(rows))
+
+    # Crea la máscara rectangular: True (o 1) dentro de los límites, False (o 0) fuera
+    lpf_mask_local = (np.abs(x_mask_coords - center_x_local) <= cutoff_val) & \
+                     (np.abs(y_mask_coords - center_y_local) <= cutoff_val)
+
+    # Aplicar el Filtro en el Dominio de la Frecuencia
+    fft_filtered_shifted_local = fft_image * lpf_mask_local
+
+
+    # Calcula la FFT inversa para obtener la imagen filtrada
+    image_filtered_local = np.fft.ifft2(fft_filtered_shifted_local) # Usar fft_filtered_local
+
+    # Toma la magnitud (la IFFT puede tener componentes imaginarias muy pequeñas)
+    return np.abs(image_filtered_local)
+
+# --- Configuración inicial para el gráfico interactivo ---
+# Valor inicial para el único slider
+initial_cutoff_slider = 450
+
+# Ajustar el máximo del slider. Limitado por la dimensión más pequeña
+max_cutoff = min(600, cols // 2, rows // 2)
+# Asegurar que el valor inicial no exceda el máximo
+initial_cutoff_slider = min(initial_cutoff_slider, max_cutoff)
+
+fig_slider, axs_slider = plt.subplots(1, 2, figsize=(12, 6))
+# Ajustar espacio inferior para un solo slider
+plt.subplots_adjust(bottom=0.2) # Menos espacio necesario ahora
+
+# Mostrar imagen original ruidosa (intensidad)
+im_noisy_slider = axs_slider[0].imshow(np.abs(campo_ruidoso)**2, cmap='gray')
+axs_slider[0].set_title('Imagen Original (Ruidosa)')
+axs_slider[0].axis('off')
+
+# Aplicar filtro inicial y mostrar
+filtered_image_slider_initial = filtrar_imagenes(campo_ruidoso, initial_cutoff_slider)
+im_filtered_slider = axs_slider[1].imshow(filtered_image_slider_initial, cmap='gray')
+# Actualizar título para reflejar un solo valor de corte
+axs_slider[1].set_title(f'Imagen Filtrada (Corte X=Y={initial_cutoff_slider})')
+axs_slider[1].axis('off')
+
+# --- Crear eje para el slider ---
+axcolor_slider = 'lightgoldenrodyellow'
+# Un solo eje ahora, ligeramente más arriba
+ax_cutoff_slider = plt.axes([0.15, 0.1, 0.65, 0.03], facecolor=axcolor_slider)
+
+# --- Crear el slider ---
+slider_cutoff_widget = Slider( # Renombrado para claridad
+    ax=ax_cutoff_slider,
+    label='Corte X=Y', # Etiqueta actualizada
+    valmin=10,
+    valmax=max_cutoff, # Usar el máximo calculado
+    valinit=initial_cutoff_slider,
+    valstep=10
+)
+
+# --- Función de actualización para el slider ---
+def update_single_slider(val):
+    # Leer el valor del único slider
+    current_cutoff_slider = int(slider_cutoff_widget.val)
+    # Aplicar el filtro usando este valor para ambos ejes
+    filtered_image_new_slider = filtrar_imagenes(campo_ruidoso, current_cutoff_slider)
+    im_filtered_slider.set_data(filtered_image_new_slider)
+    # Actualizar título
+    axs_slider[1].set_title(f'Imagen Filtrada (Corte X=Y={current_cutoff_slider})')
+    fig_slider.canvas.draw_idle()
+
+# --- Conectar slider a la función de actualización ---
+slider_cutoff_widget.on_changed(update_single_slider) # Conectar el único slider
+
+# --- Mostrar el gráfico interactivo ---
+print("\nMostrando gráfico interactivo para filtrado simétrico. Mueve el slider.")
+plt.show()
+
+print(f"\nProceso completado.")
