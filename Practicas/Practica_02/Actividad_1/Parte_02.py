@@ -9,6 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
 from matplotlib.widgets import Slider
+from scipy.signal import find_peaks 
 
 # ===================================================================
 #       Definicion de matrices de diferentes interacciones
@@ -303,7 +304,7 @@ extent_cam1 = [-ancho_m1_mm/2, ancho_m1_mm/2, -alto_m1_mm/2, alto_m1_mm/2]
 
 # Calcular el extent correcto para S1_campo usando sus coordenadas
 extent_S1 = [S1_x_mesh.min(), S1_x_mesh.max(), S1_y_mesh.min(), S1_y_mesh.max()]
-im_s1 = axes[1].imshow(intensity_S1, cmap='viridis', extent=extent_in, origin='lower', aspect='equal')
+im_s1 = axes[1].imshow(intensity_S1, cmap='gray', extent=extent_in, origin='lower', aspect='equal')
 fig.colorbar(im_s1, ax=axes[1], label='Intensidad |S1|^2', shrink=0.8)
 axes[1].set_xlabel('x (mm)') # Coordenadas del plano M1
 axes[1].set_ylabel('y (mm)')
@@ -322,7 +323,7 @@ alto_cam1_mm = 3506 * 3.8e-3  # Alto físico en mm
 # Usas las dimensiones de la cámara para definir el extent directamente
 extent_cam1 = [-ancho_cam1_mm/2, ancho_cam1_mm/2, -alto_cam1_mm/2, alto_cam1_mm/2]
 
-im_s2 = axes[2].imshow(intensity_S2, cmap='viridis', extent=extent_cam1, origin='lower', aspect='equal') # Usando extent_cam1
+im_s2 = axes[2].imshow(intensity_S2, cmap='gray', extent=extent_cam1, origin='lower', aspect='equal') # Usando extent_cam1
 fig.colorbar(im_s2, ax=axes[2], label='Intensidad |S2|^2', shrink=0.8) # Cambiado a intensity_S2, im_s2
 axes[2].set_xlabel('u (mm)') # Coordenadas del plano Cam1
 axes[2].set_ylabel('v (mm)')
@@ -360,12 +361,211 @@ def filtrar_imagenes(imagen_noisy, cutoff_val):
     # Aplicar el Filtro en el Dominio de la Frecuencia
     fft_filtered_shifted_local = fft_image * lpf_mask_local
 
-
     # Calcula la FFT inversa para obtener la imagen filtrada
     image_filtered_local = np.fft.ifft2(fft_filtered_shifted_local) # Usar fft_filtered_local
 
     # Toma la magnitud (la IFFT puede tener componentes imaginarias muy pequeñas)
-    return np.abs(image_filtered_local)
+    return np.abs(image_filtered_local), fft_image
+
+
+filtro, TF = filtrar_imagenes(campo_ruidoso, 450)
+
+# ===================================================================
+#        PREPARACIÓN Y GRAFICACIÓN (Parte corregida/añadida)
+# ===================================================================
+
+# --- Preparar TF para Graficar ---
+TF_shifted = np.fft.fftshift(TF)
+TF_magnitude = np.abs(TF_shifted)
+# Usar escala logarítmica para mejor visualización (log(1+x) para evitar log(0))
+TF_log_magnitude = np.log1p(TF_magnitude)
+
+# --- Calcular extensión espacial y de frecuencia ---
+extent_space = [-Lx/2, Lx/2, -Ly/2, Ly/2] # Extensión espacial
+
+# Calcular frecuencias para los ejes
+dx = Lx / cols
+dy = Ly / rows
+fx = np.fft.fftshift(np.fft.fftfreq(cols, dx))
+fy = np.fft.fftshift(np.fft.fftfreq(rows, dy))
+extent_freq = [fx[0], fx[-1], fy[0], fy[-1]] # Extensión en frecuencia
+
+# --- Graficar ---
+fig, axes = plt.subplots(1, 2, figsize=(15, 6)) # Ajusta figsize si es necesario
+
+# --- Graficar del campo de entrada (Intensidad) ---
+intensity_in = np.abs(S2_campo)**2
+im_int = axes[0].imshow(intensity_in, cmap='gray', extent=extent_space, origin='lower', aspect='equal')
+fig.colorbar(im_int, ax=axes[0], label='Intensidad $|U(ξ,η)|^2$', shrink=0.8) # Usando U para campo genérico
+axes[0].set_xlabel('ξ (mm)')
+axes[0].set_ylabel('η (mm)')
+axes[0].set_title('Campo de Entrada (Intensidad)')
+axes[0].grid(False)
+
+# --- Graficar la Magnitud de la Transformada de Fourier (escala log) ---
+im_tf = axes[1].imshow(TF_log_magnitude, cmap='viridis', extent=extent_freq, origin='lower', aspect='auto') # Cambiado a viridis y aspect auto
+fig.colorbar(im_tf, ax=axes[1], label='Log Magnitud $|\\mathcal{F}\\{U(ξ,η)\\}|$', shrink=0.8) # Usando U
+axes[1].set_xlabel('$f_x$ (1/mm)') # Etiqueta de frecuencia
+axes[1].set_ylabel('$f_y$ (1/mm)') # Etiqueta de frecuencia
+axes[1].set_title('Espectro de Frecuencias (Magnitud Log)') # Título actualizado
+axes[1].grid(False)
+
+plt.tight_layout() # Ajusta el espaciado
+plt.savefig('campo_y_transformada_corregido.png') # Guarda la figura
+# plt.show() # Descomenta si quieres mostrar la figura interactivamente
+
+
+# --- (Asumiendo que ya tienes TF_magnitude, fx, fy, cols, rows de tu código anterior) ---
+
+# Re-calculamos por si acaso, usando TF_shifted que es la TF centrada
+TF_magnitude = np.abs(TF_shifted)
+
+# --- Encontrar picos en el eje fx (líneas verticales brillantes) ---
+# Sumar la magnitud a lo largo del eje y (axis=0) para obtener el perfil horizontal
+sum_along_fy = np.sum(TF_magnitude, axis=0)
+center_x_index = cols // 2
+
+# Encontrar picos. Ajusta 'prominence' o 'height' según sea necesario para tu imagen
+# Prominence ayuda a encontrar picos que "sobresalen" de su entorno local
+peaks_fx_indices, properties_fx = find_peaks(sum_along_fy, prominence=np.max(sum_along_fy)/10) # Ejemplo: prominencia > 10% del max
+
+# Filtrar el pico central (DC) si está presente
+peaks_fx_indices = peaks_fx_indices[peaks_fx_indices != center_x_index]
+
+# Obtener las frecuencias fx correspondientes
+high_fx_values = fx[peaks_fx_indices]
+
+print("Altas frecuencias detectadas en fx (líneas verticales):")
+if len(high_fx_values) > 0:
+    for f_val, intensity_sum in zip(high_fx_values, sum_along_fy[peaks_fx_indices]):
+        print(f"  fx ≈ {f_val:.2f} (1/mm), Suma de Magnitud ≈ {intensity_sum:.2e}")
+else:
+    print("  No se detectaron picos prominentes fuera del DC.")
+
+
+# --- Encontrar picos en el eje fy (líneas horizontales brillantes) ---
+# Sumar la magnitud a lo largo del eje x (axis=1) para obtener el perfil vertical
+sum_along_fx = np.sum(TF_magnitude, axis=1)
+center_y_index = rows // 2
+
+# Encontrar picos. Ajusta 'prominence' o 'height'
+peaks_fy_indices, properties_fy = find_peaks(sum_along_fx, prominence=np.max(sum_along_fx)/10)
+
+# Filtrar el pico central (DC)
+peaks_fy_indices = peaks_fy_indices[peaks_fy_indices != center_y_index]
+
+# Obtener las frecuencias fy correspondientes
+high_fy_values = fy[peaks_fy_indices]
+
+print("\nAltas frecuencias detectadas en fy (líneas horizontales):")
+if len(high_fy_values) > 0:
+    for f_val, intensity_sum in zip(high_fy_values, sum_along_fx[peaks_fy_indices]):
+        print(f"  fy ≈ {f_val:.2f} (1/mm), Suma de Magnitud ≈ {intensity_sum:.2e}")
+else:
+    print("  No se detectaron picos prominentes fuera del DC.")
+
+# --- Opcional: Graficar los perfiles y los picos encontrados ---
+fig_peaks, axes_peaks = plt.subplots(2, 1, figsize=(10, 8))
+
+axes_peaks[0].plot(fx, sum_along_fy)
+axes_peaks[0].plot(high_fx_values, sum_along_fy[peaks_fx_indices], "x", color='red', label='Picos Detectados (Altas Freq.)')
+axes_peaks[0].set_title('Suma de Magnitud a lo largo de $f_y$ (Detecta picos en $f_x$)')
+axes_peaks[0].set_xlabel('$f_x$ (1/mm)')
+axes_peaks[0].set_ylabel('Suma de Magnitud')
+axes_peaks[0].legend()
+axes_peaks[0].grid(True)
+
+axes_peaks[1].plot(fy, sum_along_fx)
+axes_peaks[1].plot(high_fy_values, sum_along_fx[peaks_fy_indices], "x", color='red', label='Picos Detectados (Altas Freq.)')
+axes_peaks[1].set_title('Suma de Magnitud a lo largo de $f_x$ (Detecta picos en $f_y$)')
+axes_peaks[1].set_xlabel('$f_y$ (1/mm)')
+axes_peaks[1].set_ylabel('Suma de Magnitud')
+axes_peaks[1].legend()
+axes_peaks[1].grid(True)
+
+plt.tight_layout()
+plt.savefig('perfiles_frecuencia_picos.png')
+# plt.show() # Descomenta para mostrar
+
+import numpy as np
+import matplotlib.pyplot as plt
+# Asumiendo que TF_shifted, fx, fy, rows, cols ya existen
+
+# --- 1. Frecuencias a eliminar (las que encontraste) ---
+target_fx = np.array([-6.10, -2.00, 2.00, 6.10])
+target_fy = np.array([-1.50, -1.20, 1.20, 1.50])
+radius_pixels = 5 # Radio de los círculos opacos en píxeles (¡AJUSTA ESTE VALOR!)
+
+# --- 2. Encontrar los índices de píxeles correspondientes ---
+peak_indices_fx = []
+for f_val in target_fx:
+    # Encuentra el índice del valor más cercano en el vector fx
+    idx = np.argmin(np.abs(fx - f_val))
+    peak_indices_fx.append(idx)
+    print(f"Target fx={f_val:.2f} -> Índice p={idx} (fx[idx]={fx[idx]:.2f})")
+
+peak_indices_fy = []
+for f_val in target_fy:
+    # Encuentra el índice del valor más cercano en el vector fy
+    idx = np.argmin(np.abs(fy - f_val))
+    peak_indices_fy.append(idx)
+    print(f"Target fy={f_val:.2f} -> Índice q={idx} (fy[idx]={fy[idx]:.2f})")
+
+# Los picos están en (p_idx, centro_y) para fx y (centro_x, q_idx) para fy
+center_x_index = cols // 2
+center_y_index = rows // 2
+
+# Lista de coordenadas (fila, columna) de los picos en la matriz TF_shifted
+peak_coords = []
+for p_idx in peak_indices_fx:
+    peak_coords.append((center_y_index, p_idx)) # (fila_centro, columna_pico)
+for q_idx in peak_indices_fy:
+    peak_coords.append((q_idx, center_x_index)) # (fila_pico, columna_centro)
+
+# --- 3. Crear la máscara de muesca ---
+notch_mask = np.ones_like(TF_shifted, dtype=float) # Empezar con todo pasando (unos)
+
+# Coordenadas de la malla para calcular distancias
+y_coords, x_coords = np.indices((rows, cols))
+
+# Dibujar círculos opacos (ceros) en la máscara
+for (peak_r, peak_c) in peak_coords:
+    # Calcular la distancia al cuadrado desde cada píxel al centro del pico actual
+    distance_sq = (x_coords - peak_c)**2 + (y_coords - peak_r)**2
+    # Poner a cero los píxeles dentro del radio especificado
+    notch_mask[distance_sq <= radius_pixels**2] = 0
+
+# --- (Opcional) Visualizar la máscara ---
+plt.figure(figsize=(7, 6))
+plt.imshow(notch_mask, cmap='gray', extent=extent_freq, origin='lower')
+plt.title(f'Máscara de Muesca (Notch Filter) (Radio={radius_pixels} píxeles)')
+plt.xlabel('$f_x$ (1/mm)')
+plt.ylabel('$f_y$ (1/mm)')
+plt.colorbar()
+plt.savefig('mascara_muesca.png')
+# plt.show()
+
+# --- 4. Aplicar la máscara ---
+TF_filtered_shifted = TF_shifted * notch_mask
+
+# --- 5. Transformar Inversa ---
+# Deshacer el centrado
+TF_filtered = np.fft.ifftshift(TF_filtered_shifted)
+# Calcular IFFT
+imagen_filtrada_notch = np.fft.ifft2(TF_filtered)
+# Tomar la magnitud (o intensidad si prefieres)
+intensidad_filtrada_notch = np.abs(imagen_filtrada_notch)**2
+
+# --- Graficar el resultado ---
+fig_res, axes_res = plt.subplots(1, 2, figsize=(15, 6))
+
+# Imagen Original (Intensidad)
+intensity_in = np.abs(S2_campo)**2
+extent_space = [-Lx/2, Lx/2, -Ly/2, Ly/2]
+im_orig = axes_res[0].imshow(intensity_in, cmap='gray', extent=extent_space, origin='lower', aspect='equal')
+fig_res.colorbar(im_orig, ax=axes_res[0], label='Intensidad Original', shrink=0.8)
+axes_res[0].set_title('Campo de Entrada Original (Intensidad)')
+axes_res[0].set
 
 # --- Configuración inicial para el gráfico interactivo ---
 # Valor inicial para el único slider
@@ -381,12 +581,12 @@ fig_slider, axs_slider = plt.subplots(1, 2, figsize=(12, 6))
 plt.subplots_adjust(bottom=0.2) # Menos espacio necesario ahora
 
 # Mostrar imagen original ruidosa (intensidad)
-im_noisy_slider = axs_slider[0].imshow(np.abs(campo_ruidoso)**2, cmap='gray')
-axs_slider[0].set_title('Imagen Original (Ruidosa)')
+im_noisy_slider = axs_slider[0].imshow(np.abs(S2_campo)**2, cmap='gray')
+axs_slider[0].set_title('Campo en CAM1 $O(u,v)$ ($Noisy$)')
 axs_slider[0].axis('off')
 
 # Aplicar filtro inicial y mostrar
-filtered_image_slider_initial = filtrar_imagenes(campo_ruidoso, initial_cutoff_slider)
+filtered_image_slider_initial, TF_Imagen = filtrar_imagenes(campo_ruidoso, initial_cutoff_slider)
 im_filtered_slider = axs_slider[1].imshow(filtered_image_slider_initial, cmap='gray')
 # Actualizar título para reflejar un solo valor de corte
 axs_slider[1].set_title(f'Imagen Filtrada (Corte X=Y={initial_cutoff_slider})')
@@ -401,10 +601,10 @@ ax_cutoff_slider = plt.axes([0.15, 0.1, 0.65, 0.03], facecolor=axcolor_slider)
 slider_cutoff_widget = Slider( # Renombrado para claridad
     ax=ax_cutoff_slider,
     label='Corte X=Y', # Etiqueta actualizada
-    valmin=10,
+    valmin=200,
     valmax=max_cutoff, # Usar el máximo calculado
     valinit=initial_cutoff_slider,
-    valstep=10
+    valstep=5
 )
 
 # --- Función de actualización para el slider ---
