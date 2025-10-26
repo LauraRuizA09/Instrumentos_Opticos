@@ -368,7 +368,7 @@ axes[1].grid(False)
 
 # --- Ajustar espaciado y mostrar la figura completa ---
 plt.tight_layout() # Ajusta el espaciado para evitar superposiciones
-plt.show() # Muestra la figura con los tres subplots
+#plt.show() # Muestra la figura con los tres subplots
 
 
 # ===================================================================
@@ -376,7 +376,7 @@ plt.show() # Muestra la figura con los tres subplots
 # ===================================================================
 
 # Campo con ruido (resultado de la propagación)
-campo_ruidoso = S1_campo # EL que llega a t(x,y)
+campo_ruidoso = S2_campo # EL que llega a O(u,v)
 rows, cols = campo_ruidoso.shape # Obtener dimensiones aquí
 
 # --- Función para aplicar el filtro ---
@@ -418,42 +418,43 @@ TF_magnitude = np.abs(TF_shifted)               # Magnitud de la TF
 TF_log_magnitude = np.log1p(TF_magnitude)       # Usar escala logarítmica para mejor visualización (log(1+x) para evitar log(0))
 
 # --- Calcular extensión espacial y de frecuencia ---
-extent_space = [-Lx/2, Lx/2, -Ly/2, Ly/2] # Extensión espacial
+# Extensión espacial ya definida como extent_cam1
+# Calcular frecuencias para los ejes (usando las dimensiones de salida S2)
+dx_out = S2_dx # Paso espacial en la salida
+dy_out = S2_dy
 
-# Calcular frecuencias para los ejes
-dx = Lx / cols
-dy = Ly / rows
-fx = np.fft.fftshift(np.fft.fftfreq(cols, dx))
-fy = np.fft.fftshift(np.fft.fftfreq(rows, dy))
-extent_freq = [fx[0], fx[-1], fy[0], fy[-1]] # Extensión en frecuencia
+# Usaremos las frecuencias originales fx_vec, fy_vec ya que la máscara se define allí
+fx = fx_vec # Vector 1D original
+fy = fy_vec # Vector 1D original
+extent_freq = [fx.min(), fx.max(), fy.min(), fy.max()] # Extensión en frecuencia
 
 # --- Graficar ---
-fig, axes = plt.subplots(1, 2, figsize=(15, 6)) # Ajusta figsize si es necesario
+fig_tf, axes_tf = plt.subplots(1, 2, figsize=(15, 6)) # Cambiado el nombre de la figura
 
-# --- Graficar del campo de entrada (Intensidad) ---
-intensity_in = np.abs(S1_campo)**2
-im_int = axes[0].imshow(intensity_in, cmap='gray', extent=extent_space, origin='lower', aspect='equal')
-fig.colorbar(im_int, ax=axes[0], label='Intensidad $|U(ξ,η)|^2$', shrink=0.8) # Usando U para campo genérico
-axes[0].set_xlabel('ξ (mm)')
-axes[0].set_ylabel('η (mm)')
-axes[0].set_title('Campo de Entrada (Intensidad)')
-axes[0].grid(False)
+# --- Graficar del campo de estudio (CAM1, ruidoso) ---
+intensity_in = np.abs(campo_ruidoso)**2
+im_int = axes_tf[0].imshow(intensity_in, cmap='gray', extent=extent_cam1, origin='lower', aspect='equal') # Usando extent_cam1
+fig_tf.colorbar(im_int, ax=axes_tf[0], label='Intensidad $|O(u,v)|^2$', shrink=0.8) # Usando O(u,v)
+axes_tf[0].set_xlabel('u (mm)')
+axes_tf[0].set_ylabel('v (mm)')
+axes_tf[0].set_title('Campo en CAM1 Ruidoso (Intensidad)')
+axes_tf[0].grid(False)
 
 # --- Graficar la Magnitud de la Transformada de Fourier (escala log) ---
-im_tf = axes[1].imshow(TF_log_magnitude, cmap='viridis', extent=extent_freq, origin='lower', aspect='auto') # Cambiado a viridis y aspect auto
-fig.colorbar(im_tf, ax=axes[1], label='Log Magnitud $|\\mathcal{F}\\{U(ξ,η)\\}|$', shrink=0.8) # Usando U
-axes[1].set_xlabel('$f_x$ (1/mm)') # Etiqueta de frecuencia
-axes[1].set_ylabel('$f_y$ (1/mm)') # Etiqueta de frecuencia
-axes[1].set_title('Espectro de Frecuencias (Magnitud Log)') # Título actualizado
-axes[1].grid(False)
+im_tf_plot = axes_tf[1].imshow(TF_log_magnitude, cmap='viridis', extent=extent_freq, origin='lower', aspect='auto') # Cambiado a im_tf_plot
+fig_tf.colorbar(im_tf_plot, ax=axes_tf[1], label='Log Magnitud $|\\mathcal{F}\\{O(u,v)\\}|$', shrink=0.8) # Usando O(u,v)
+axes_tf[1].set_xlabel('$f_x$ (1/mm)') # Etiqueta de frecuencia
+axes_tf[1].set_ylabel('$f_y$ (1/mm)') # Etiqueta de frecuencia
+axes_tf[1].set_title('Espectro de Frecuencias del Campo en CAM1 (Log Mag)') # Título actualizado
+axes_tf[1].grid(False)
 
 plt.tight_layout() # Ajusta el espaciado
-#plt.savefig('campo_y_transformada_corregido.png') # Guarda la figura
-plt.show() 
+#plt.savefig('campo_cam1_y_transformada.png') # Guarda la figura
+plt.show()
 
 
 # ===================================================================
-#       Identificar frecuencias excatas para realizar la mascara
+#       Identificar frecuencias exactas para realizar la mascara
 # ===================================================================
 
 # --- Encontrar picos en el eje fx (líneas verticales brillantes) ---
@@ -519,66 +520,115 @@ axes_peaks[1].grid(True)
 
 plt.tight_layout()
 #plt.savefig('perfiles_frecuencia_picos.png')
-plt.show() 
+#plt.show() 
+# ===================================================================
+#   NUEVO: Definición de la función para máscara Gaussiana
+# ===================================================================
+def create_gaussian_notch_mask(TF_shape, fx_coords, fy_coords, noise_freq_coords, sigma_noise, sigma_dc):
+    """
+    Crea una máscara de muesca 2D con atenuaciones Gaussianas.
+
+    Args:
+        TF_shape (tuple): La forma (shape) del array de la Transformada de Fourier.
+        fx_coords (np.array): Array 1D con las coordenadas de frecuencia fx.
+        fy_coords (np.array): Array 1D con las coordenadas de frecuencia fy.
+        noise_freq_coords (list): Lista de tuplas (center_fx, center_fy) para las muescas de ruido.
+        sigma_noise (float): Desviación estándar (ancho) para las muescas de ruido (en 1/mm).
+        sigma_dc (float): Desviación estándar (ancho) para la muesca DC (en 1/mm).
+
+    Returns:
+        np.array: La máscara de muesca Gaussiana 2D (valores entre 0 y 1).
+    """
+    print("\n--- Preparando la Máscara 2D con Muescas Gaussianas ---")
+
+    # --- Crear matrices 2D con los valores de frecuencia fx y fy ---
+    FX, FY = np.meshgrid(fx_coords, fy_coords) # Usa los vectores 1D directamente
+
+    # --- Inicializar la máscara ---
+    gaussian_notch_mask = np.ones(TF_shape, dtype=float)
+
+    # --- Crear y aplicar muescas Gaussianas para el RUIDO ---
+    print(f"\nCreando muescas de ruido Gaussianas con sigma = {sigma_noise:.4f} (1/mm)...")
+    if not noise_freq_coords:
+        print("  No se especificaron coordenadas de ruido.")
+    else:
+        for (center_fx, center_fy) in noise_freq_coords:
+            distance_sq_noise = (FX - center_fx)**2 + (FY - center_fy)**2
+            gaussian_dip = 1.0 - np.exp(-distance_sq_noise / (2 * sigma_noise**2))
+            gaussian_notch_mask *= gaussian_dip
+            print(f"  Muesca Gaussiana aplicada centrada en ({center_fx:.2f}, {center_fy:.2f})")
+
+    # --- Crear y aplicar muesca Gaussiana para el DC (si sigma_dc > 0) ---
+    if sigma_dc > 0:
+        print(f"\nCreando muesca central Gaussiana (DC) con sigma = {sigma_dc:.4f} (1/mm)...")
+        distance_sq_dc = FX**2 + FY**2
+        dc_dip = 1.0 - np.exp(-distance_sq_dc / (2 * sigma_dc**2))
+        gaussian_notch_mask *= dc_dip
+        print(f"  Muesca DC Gaussiana aplicada.")
+    else:
+        print("\nSigma DC es cero o negativo, no se aplicará muesca DC.")
+
+    print("\n--- Máscara Gaussiana creada ---")
+    return gaussian_notch_mask
 
 # ===================================================================
-#  Aplicacion la mascara para eliminar las frecuencias no deseadas
+#  Aplicacion la mascara GAUSSIANA para eliminar las frecuencias no deseadas
 # ===================================================================
 
-# --- Frecuencias a eliminar ---
-target_fx = np.array([-6.10, -2.00, 2.00, 6.10])
-target_fy = np.array([-1.50, -1.20, 1.20, 1.50])
+print("\n--- Preparando la Máscara 2D con Muescas Gaussianas ---")
 
-# --- Creamos mascaras de radios pequeños alrededor de estas frecuencias ---
-radius_pixels = 5 # Radio de los círculos en píxeles para la mascara
+# --- Frecuencias base detectadas en los ejes ---
+base_target_fx = high_fx_values
+base_target_fy = high_fy_values
 
-# --- Encontrar los índices de píxeles correspondientes ---
-peak_indices_fx = []
-for f_val in target_fx:
- # Encuentra el índice del valor más cercano en el vector fx
- idx = np.argmin(np.abs(fx - f_val))
- peak_indices_fx.append(idx)
- print(f"Target fx={f_val:.2f} -> Índice p={idx} (fx[idx]={fx[idx]:.2f})")
+# --- Generar coordenadas (fx, fy) únicas objetivo (igual que antes) ---
+target_coords_freq = []
+for fy_val in base_target_fy: target_coords_freq.extend([(0, fy_val), (0, -fy_val)])
+for fx_val in base_target_fx: target_coords_freq.extend([(fx_val, 0), (-fx_val, 0)])
+for fx_val in base_target_fx:
+    for fy_val in base_target_fy:
+        target_coords_freq.extend([(fx_val, fy_val), (-fx_val, fy_val), (fx_val, -fy_val), (-fx_val, -fy_val)])
+target_coords_freq_set = set(target_coords_freq)
+target_coords_freq_set.discard((0, 0))
+unique_target_coords_freq = list(target_coords_freq_set)
 
-peak_indices_fy = []
-for f_val in target_fy:
- # Encuentra el índice del valor más cercano en el vector fy
- idx = np.argmin(np.abs(fy - f_val))
- peak_indices_fy.append(idx)
- print(f"Target fy={f_val:.2f} -> Índice q={idx} (fy[idx]={fy[idx]:.2f})")
+print("\nCoordenadas (fx, fy) únicas objetivo para las muescas de ruido:")
+for fx_val, fy_val in sorted(unique_target_coords_freq):
+    print(f"  ({fx_val:.2f}, {fy_val:.2f})")
 
-# Los picos están en (p_idx, centro_y) para fx y (centro_x, q_idx) para fy
-center_x_index = cols // 2
-center_y_index = rows // 2
+# --- Parámetros de la máscara GAUSSIANA ---
+# ¡¡AJUSTA ESTOS VALORES!! Un sigma más pequeño es una muesca más estrecha.
+sigma_noise_freq = 0.2 # Sigma para las muescas de ruido (1/mm). Prueba diferentes valores.
+sigma_dc_freq = 0   # Sigma para la muesca DC (1/mm). Pon <= 0 si no quieres quitar DC.
 
-# Lista de coordenadas (fila, columna) de los picos en la matriz TF_shifted
-peak_coords = []
-for p_idx in peak_indices_fx:
- peak_coords.append((center_y_index, p_idx)) # (fila_centro, columna_pico)
-for q_idx in peak_indices_fy:
- peak_coords.append((q_idx, center_x_index)) # (fila_pico, columna_centro)
+# --- Crear la máscara GAUSSIANA ---
+# Pasamos la forma de TF_shifted, los vectores de frecuencia fx y fy,
+# las coordenadas de ruido y los sigmas.
+gaussian_mask = create_gaussian_notch_mask(TF_shifted.shape, fx, fy, unique_target_coords_freq, sigma_noise_freq, sigma_dc_freq)
 
-# --- Crear la máscara de muesca ---
-notch_mask = np.zeros_like(TF_shifted, dtype=float) # Empezar con todo pasando (unos)
+# --- Crear la máscara GAUSSIANA original (atenúa ruido y DC) ---
+gaussian_mask_original = create_gaussian_notch_mask(TF_shifted.shape, fx, fy, unique_target_coords_freq, sigma_noise_freq, sigma_dc_freq)
 
-# Coordenadas de la malla para calcular distancias
-y_coords, x_coords = np.indices((rows, cols))
+# --- <<< AQUÍ VA LA INVERSIÓN >>> ---
+gaussian_mask_invertida = 1.0 - gaussian_mask_original
+print("\n--- Máscara Gaussiana Invertida Creada ---")
 
-# Dibujar círculos opacos (ceros) en la máscara
-for (peak_r, peak_c) in peak_coords:
- # Calcular la distancia al cuadrado desde cada píxel al centro del pico actual
- distance_sq = (x_coords - peak_c)**2 + (y_coords - peak_r)**2
- # Poner a cero los píxeles dentro del radio especificado
- notch_mask[distance_sq <= radius_pixels**2] = 1
-
-# --- Visualizar la máscara ---
+# --- Visualizar la máscara GAUSSIANA creada ---
 plt.figure(figsize=(7, 6))
-plt.imshow(notch_mask, cmap='gray', extent=extent_freq, origin='lower')
-plt.title(f'Máscara de Muesca (Notch Filter) (Radio={radius_pixels} píxeles)')
+plt.imshow(gaussian_mask_invertida, cmap='gray', extent=[fx.min(), fx.max(), fy.min(), fy.max()], origin='lower', aspect='equal', vmin=0, vmax=1)
+plt.colorbar(label='Transmitancia de la Máscara Gaussiana')
+plt.title(f'Máscara de Muesca Gaussiana (Sigma Ruido={sigma_noise_freq:.2f}, Sigma DC={sigma_dc_freq:.2f} 1/mm)')
 plt.xlabel('$f_x$ (1/mm)')
 plt.ylabel('$f_y$ (1/mm)')
-plt.colorbar()
-#plt.savefig('mascara_muesca.png')
+
+# Marcar centros de muescas de ruido si existen
+if unique_target_coords_freq:
+    marker_freqs_x = [f[0] for f in unique_target_coords_freq]
+    marker_freqs_y = [f[1] for f in unique_target_coords_freq]
+    plt.scatter(marker_freqs_x, marker_freqs_y, s=50, facecolors='none', edgecolors='r', marker='o', label='Centros de Ruido') # Cambiado marcador
+    plt.legend()
+
+# plt.savefig('mascara_gaussiana_2D_DC_creada.png')
 plt.show()
 
 # ===================================================================
@@ -586,46 +636,46 @@ plt.show()
 # ===================================================================
 
 def filtrar_imagenes_mask(imagen_noisy, mask):
- 
- # Calcular la FFT 2D de la imagen ruidosa para estar en el plano de frecuencias y hacer el filtro
- fft_image = np.fft.fft2(imagen_noisy)
 
- # Aplicar el Filtro en el Dominio de la Frecuencia
- fft_filtered_shifted_local = fft_image * mask
+ # Calcular la FFT 2D de la imagen ruidosa y centrarla
+ fft_image_shifted = np.fft.fftshift(np.fft.fft2(imagen_noisy)) # <-- Centrar FFT
+
+ # Aplicar el Filtro en el Dominio de la Frecuencia (la máscara ya está centrada)
+ fft_filtered_shifted_local = fft_image_shifted * mask # <-- Multiplicar por máscara
+
+ # Desplazar de nuevo al formato estándar de FFT
+ fft_filtered_local = np.fft.ifftshift(fft_filtered_shifted_local) # <-- Deshacer shift
 
  # Calcula la FFT inversa para obtener la imagen filtrada
- image_filtered_local = np.fft.ifft2(fft_filtered_shifted_local) # Usar fft_filtered_local
+ image_filtered_local = np.fft.ifft2(fft_filtered_local)
 
  # Toma la magnitud (la IFFT puede tener componentes imaginarias muy pequeñas)
- return np.abs(image_filtered_local), fft_image
-
+ return np.abs(image_filtered_local), fft_image_shifted # Devuelve FFT centrada ruidosa
 
 # ===================================================================
 #           Graficar campos de entrada y salida corregidos
 # ===================================================================
 
-fig, axes = plt.subplots(1, 2, figsize=(21, 6)) # Ajusta figsize si es necesario (más ancho ahora)
-intensity = np.abs(S1_campo)**2
-extent_in = [-Lx/2, Lx/2, -Ly/2, Ly/2]
-im_int = axes[0].imshow(intensity, cmap='gray', extent=extent_in, origin='upper', aspect='equal')
-fig.colorbar(im_int, ax=axes[0], label='Intensidad Transmitida |U0|^2', shrink=0.8)
-axes[0].set_xlabel('ξ (mm)')
-axes[0].set_ylabel('η (mm)')
-axes[0].set_title('Campo de Entrada $S(ξ,η)$')
-axes[0].grid(False)
+fig_final, axes_final = plt.subplots(1, 2, figsize=(21, 6)) # Cambiado nombre de fig/axes
+intensity = np.abs(campo_ruidoso)**2
+# Usaremos extent_cam1 que ya calculaste para el campo ruidoso
+im_int = axes_final[0].imshow(intensity, cmap='gray', extent=extent_cam1, origin='lower', aspect='equal') # <-- Usando extent_cam1 y origin lower
+fig_final.colorbar(im_int, ax=axes_final[0], label='Intensidad |O(u,v)|^2', shrink=0.8) # <-- Usando O(u,v)
+axes_final[0].set_xlabel('u (mm)')
+axes_final[0].set_ylabel('v (mm)')
+axes_final[0].set_title('Campo en CAM1 Ruidoso $O(u,v)$') # <-- Título actualizado
+axes_final[0].grid(False)
 
-# --- Intensidad de campo filtrado ---
-campo_filtrado, TF_noisy = filtrar_imagenes_mask(campo_ruidoso, notch_mask)
-intensity_filtered = np.abs(campo_filtrado)**2     
-im_s2 = axes[1].imshow(intensity_filtered, cmap='gray', extent=extent_cam1, origin='lower', aspect='equal') # Usando extent_cam1
-fig.colorbar(im_s2, ax=axes[1], label='Intensidad |S2_filtrado|^2', shrink=0.8) # Cambiado a intensity_S2, im_s2
-axes[1].set_xlabel('u (mm)') # Coordenadas del plano Cam1
-axes[1].set_ylabel('v (mm)')
-axes[1].set_title('Campo en CAM1 Filtrado $O_{filtrado}(u,v)$') # Título más descriptivo
-axes[1].grid(False) 
+# --- Intensidad de campo filtrado con máscara GAUSSIANA ---
+campo_filtrado, TF_noisy_shifted = filtrar_imagenes_mask(campo_ruidoso, gaussian_mask) # <-- Usar gaussian_mask
+intensity_filtered = np.abs(campo_filtrado)**2
+im_s2 = axes_final[1].imshow(intensity_filtered, cmap='gray', extent=extent_cam1, origin='lower', aspect='equal') # Usando extent_cam1 y origin lower
+fig_final.colorbar(im_s2, ax=axes_final[1], label='Intensidad Filtrada', shrink=0.8) # Etiqueta actualizada
+axes_final[1].set_xlabel('u (mm)')
+axes_final[1].set_ylabel('v (mm)')
+axes_final[1].set_title('Campo en CAM1 Filtrado (Muesca Gaussiana)') # Título actualizado
+axes_final[1].grid(False)
 
 plt.tight_layout()
-#plt.savefig('Imagen Filtrada.png')
-plt.show() 
-
-
+#plt.savefig('Imagen_Filtrada_Gaussiana.png')
+plt.show()
