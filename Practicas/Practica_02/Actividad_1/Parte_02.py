@@ -220,7 +220,7 @@ def transmitancia_entrada(tipo_de_objeto):
  elif tipo_de_objeto == 'imagen':
 
     # Cargar una imagen en escala de grises y normalizarla
-    imagen = Image.open('Practicas/Practica_02/Actividad_1/Noise images/Noise (3).png').convert('L')
+    imagen = Image.open('Practicas/Practica_02/Actividad_1/Noise images/Noise (18).png').convert('L')
     imagen = imagen.resize((Nx, Ny)) # Redimensionar la imagen al tamaño Nx x Ny
     U0 = np.array(imagen) / 255.0 # Normalizar a [0, 1]
     U0 = U0.astype(np.complex128) # Convertir a tipo complejo para incluir fase si es necesario
@@ -368,6 +368,7 @@ axes[1].grid(False)
 
 
 plt.tight_layout() # Ajusta el espaciado para evitar superposiciones
+plt.savefig('Propagacion_C1.png') 
 plt.show()
 
 
@@ -453,7 +454,7 @@ axes_tf[1].set_title('Espectro de Frecuencias del Campo en $CAM1$')
 axes_tf[1].grid(False)
 
 plt.tight_layout() 
-#plt.savefig('campo_cam1_y_transformada.png') 
+plt.savefig('TF de 0(u,v).png') 
 plt.show()
 
 
@@ -523,7 +524,7 @@ axes_peaks[1].legend()
 axes_peaks[1].grid(True)
 
 plt.tight_layout()
-#plt.savefig('perfiles_frecuencia_picos.png')
+plt.savefig('Perfiles_frecuencia_picos.png')
 plt.show() 
 
 # ===================================================================
@@ -587,7 +588,7 @@ unique_target_coords_freq = list(target_coords_freq_set)
 
 # --- Parámetros de la máscara GAUSSIANA ---
 
-sigma_noise_freq = 0.2 # Sigma para las masacaras de alrededor del centro  (1/mm)
+sigma_noise_freq = 0.3 # Sigma para las masacaras de alrededor del centro  (1/mm)
 sigma_freq = 0   # Sigma para la masacara en el centro (1/mm)
 
 # --- Crear la máscara GAUSSIANA que no deja pasar las frecuencias (altas) ---
@@ -604,7 +605,7 @@ plt.title(f'Máscara de Muesca Gaussiana (Sigma Alrededor={sigma_noise_freq:.2f}
 plt.xlabel('$f_x$ (1/mm)')
 plt.ylabel('$f_y$ (1/mm)')
 
-# plt.savefig('mascara_gaussiana_2D_DC_creada.png')
+plt.savefig('mascara_gaussiana.png')
 plt.show()
 
 # ===================================================================
@@ -653,5 +654,5 @@ axes_final[1].set_title('Campo en CAM1 Filtrado')
 axes_final[1].grid(False)
 
 plt.tight_layout()
-#plt.savefig('Imagen_Filtrada_Gaussiana.png')
+plt.savefig('Imagen_Filtrada.png')
 plt.show()
