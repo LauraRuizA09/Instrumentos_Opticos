@@ -368,7 +368,7 @@ axes[1].grid(False)
 
 
 plt.tight_layout() # Ajusta el espaciado para evitar superposiciones
-plt.savefig('Propagacion_C1.png') 
+plt.savefig("Practicas/Practica_02/Actividad_1/Propagacion_C1.png") 
 plt.show()
 
 
@@ -454,7 +454,7 @@ axes_tf[1].set_title('Espectro de Frecuencias del Campo en $CAM1$')
 axes_tf[1].grid(False)
 
 plt.tight_layout() 
-plt.savefig('TF de 0(u,v).png') 
+plt.savefig('Practicas/Practica_02/Actividad_1/TF de 0(u,v).png') 
 plt.show()
 
 
@@ -524,7 +524,7 @@ axes_peaks[1].legend()
 axes_peaks[1].grid(True)
 
 plt.tight_layout()
-plt.savefig('Perfiles_frecuencia_picos.png')
+plt.savefig('Practicas/Practica_02/Actividad_1/Perfiles_frecuencia_picos.png')
 plt.show() 
 
 # ===================================================================
@@ -605,7 +605,7 @@ plt.title(f'Máscara de Muesca Gaussiana (Sigma Alrededor={sigma_noise_freq:.2f}
 plt.xlabel('$f_x$ (1/mm)')
 plt.ylabel('$f_y$ (1/mm)')
 
-plt.savefig('mascara_gaussiana.png')
+plt.savefig("Practicas/Practica_02/Actividad_1/mascara_gaussiana.png")
 plt.show()
 
 # ===================================================================
@@ -654,5 +654,5 @@ axes_final[1].set_title('Campo en CAM1 Filtrado')
 axes_final[1].grid(False)
 
 plt.tight_layout()
-plt.savefig('Imagen_Filtrada.png')
+plt.savefig('Practicas/Practica_02/Actividad_1/Imagen_Filtrada.png')
 plt.show()
