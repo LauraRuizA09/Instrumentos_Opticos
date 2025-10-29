@@ -51,7 +51,7 @@ def matriz_reflexion_curvas(R):
  # R: radio de curvatura de la superficie reflectante
  
  a = 2 / R
- Re_curve = np.array([[1, 0], [a, -1]])
+ Re_curve = np.array([[1, 0], [a, 1]])
 
  return Re_curve 
 
@@ -72,8 +72,11 @@ def matriz_del_sistema(matrices):
  
  M_total = np.eye(2) # Matriz identidad 2x2
 
- for M in reversed(matrices):
-  M_total = np.dot(M_total, M) # Multiplicacion de matrices en orden
+ #for M in reversed(matrices):
+  #M_total = np.dot(M_total, M) # Multiplicacion de matrices en orden
+ for M in matrices:
+  M_total = M_total @ M  # Multiplicacion de matrices en orden
+
  return M_total
 
 # ===================================================================
@@ -91,7 +94,7 @@ M_prop1 = matriz_propagacion(f) # Propagacion hasta L1
 Lente_1 = lente_delgada(f) # Pasa por L1
 M_prop2 = matriz_propagacion(f) # Propagacion hasta M1
 
-trayectoria_pt_01 = [M_prop1, Lente_1, M_prop2]
+trayectoria_pt_01 = [M_prop2, Lente_1, M_prop1]
 M_total_01 = matriz_del_sistema(trayectoria_pt_01) # Matriz total del sistema trayectoria 01 pt 1
 
 #Aproximar a cero los valores muy pequeños
@@ -109,7 +112,7 @@ M_prop3 = matriz_propagacion(f) # Propagacion hasta L1
 Lente_2 = lente_delgada(f) # Pasa por L1
 M_prop4 = matriz_propagacion(f) # Propagacion hasta el plano imagen CAM1
 
-trayectoria_pt_02 = [M_reflexion_M1, M_prop3, Lente_2, M_prop4]
+trayectoria_pt_02 = [M_prop4, Lente_2, M_prop3, M_reflexion_M1]
 M_total_02 = matriz_del_sistema(trayectoria_pt_02) # Matriz total del sistema trayectoria 01 pt 2
 
 #Aproximar a cero los valores muy pequeños
@@ -122,21 +125,21 @@ print("Matriz total del sistema trayectoria 02:\n", M_total_02)
 #                   Calculo de la trayectoria 02
 # ===================================================================
 
-d = -f             # analizando para que en CAM2 se forme la TF de la imagen se requieren estas distancias
+d = 2*f          # analizando para que en CAM2 se forme la TF de la imagen se requieren estas distancias
 w = f/2
 
 M_prop5 = matriz_propagacion(d)
 M_reflexion_M2 = matriz_reflexion_curvas(np.inf) # Reflexion en M2
-M_prop3 = matriz_propagacion(w) # Propagacion hasta L2
+M_prop6 = matriz_propagacion(w) # Propagacion hasta L2
 Lente_3 = lente_delgada(f) # Pasa por L2
-M_prop4 = matriz_propagacion(f) # Propagacion hasta el plano imagen CAM2
+M_prop7 = matriz_propagacion(f) # Propagacion hasta el plano imagen CAM2
 
-trayectoria_pt_03 = [M_reflexion_M1, M_prop3, Lente_2, M_prop4]
-M_total_03 = matriz_del_sistema(trayectoria_pt_02) # Matriz total del sistema trayectoria 02
+trayectoria_pt_03 = [M_prop7, Lente_3, M_prop6, M_reflexion_M2, M_prop5]
+M_total_03 = matriz_del_sistema(trayectoria_pt_03) # Matriz total del sistema trayectoria 02
 
 #Aproximar a cero los valores muy pequeños
 threshold = 1e-15 
-M_total_03[np.abs(M_total_02) < threshold] = 0.0
+M_total_03[np.abs(M_total_03) < threshold] = 0.0
 
 print("Matriz total del sistema trayectoria 03:\n", M_total_03)
 
@@ -220,7 +223,7 @@ def transmitancia_entrada(tipo_de_objeto):
  elif tipo_de_objeto == 'imagen':
 
     # Cargar una imagen en escala de grises y normalizarla
-    imagen = Image.open('Practicas/Practica_02/Actividad_1/Noise images/Noise (18).png').convert('L')
+    imagen = Image.open('Practicas/Practica_02/Actividad_1/Noise images/Noise (9).png').convert('L')
     imagen = imagen.resize((Nx, Ny)) # Redimensionar la imagen al tamaño Nx x Ny
     U0 = np.array(imagen) / 255.0 # Normalizar a [0, 1]
     U0 = U0.astype(np.complex128) # Convertir a tipo complejo para incluir fase si es necesario
@@ -310,7 +313,9 @@ campo_entrada_2 = S1_campo
 S2_campo, S2_x_mesh, S2_y_mesh, S2_dx, S2_dy = propagar_ABCD_(campo_entrada_2, A_2, B_2, C_2, D_2, lam)
 
 # Calculamos la propagacion de la segunda trayectoria donde veremos el campo U(x,y) en el plano de la camara CAM2
-S3_campo, S3_x_mesh, S3_y_mesh, S3_dx, S3_dy = propagar_ABCD_(campo_entrada_1, A_2, B_2, C_2, D_2, lam)
+S3_campo, S3_x_mesh, S3_y_mesh, S3_dx, S3_dy = propagar_ABCD_(campo_entrada_1, A_3, B_3, C_3, D_3, lam)
+
+print(S3_campo.shape)
 
 
 # ===================================================================
@@ -319,7 +324,7 @@ S3_campo, S3_x_mesh, S3_y_mesh, S3_dx, S3_dy = propagar_ABCD_(campo_entrada_1, A
 
 #Graficamos el campo O(u,v) en CAM1 y el campo S(ξ,η) de entrada
 
-fig, axes = plt.subplots(1, 2, figsize=(21, 6)) # Ajusta figsize si es necesario (más ancho ahora)
+fig, axes = plt.subplots(1, 3, figsize=(21, 6)) # Ajusta figsize si es necesario (más ancho ahora)
 
 intensity = np.abs(campo_entrada_1)**2
 extent_in = [-Lx/2, Lx/2, -Ly/2, Ly/2]
@@ -366,10 +371,58 @@ axes[1].set_ylabel('v (mm)')
 axes[1].set_title('Campo en CAM1 $O(u,v)$') # Título más descriptivo
 axes[1].grid(False)
 
+intensity_S3 = np.abs(S3_campo)**2
+
+# Usar log scale para ver mejor los detalles débiles de la TF
+log_intensity_s3 = np.log1p(intensity_S3) # log1p(x) = log(1+x) para evitar log(0)
+log_intensity_s3_shifted = np.fft.fftshift(log_intensity_s3)
+
+# Las coordenadas de S3 ya están en mm (son x_mesh, y_mesh de salida)
+# Asegurarse que S3_x_mesh y S3_y_mesh son vectores para extent
+x_extent_s3 = [S3_x_mesh[0,0], S3_x_mesh[0,-1]]
+y_extent_s3 = [S3_y_mesh[0,0], S3_y_mesh[-1,0]]
+
+# Límites de la cámara CAM2
+ancho_cam2_mm = 1280 * 3.8e-3 # Ancho físico en mm
+alto_cam2_mm = 1024 * 3.8e-3 # Alto físico en mm
+
+extent_cam2 = [-ancho_cam2_mm/2, ancho_cam2_mm/2, -alto_cam2_mm/2, alto_cam2_mm/2]
+
+im_s3 = axes[2].imshow(log_intensity_s3_shifted, cmap='gray', extent=extent_cam2, origin='upper', aspect='equal')
+fig.colorbar(im_s3, ax=axes[2], label='Intensidad |S2|^2', shrink=0.8)
+axes[2].set_xlabel('x´ (mm)') # Coordenadas del plano Cam1
+axes[2].set_ylabel('y´ (mm)')
+axes[2].set_title('Campo en CAM2 $U(x´,y´)$') 
+axes[2].grid(False)
+zoom_range = 0.5
+axes[2].set_xlim(-zoom_range, zoom_range)
+axes[2].set_ylim(-zoom_range, zoom_range)
+
 
 plt.tight_layout() # Ajusta el espaciado para evitar superposiciones
-plt.savefig('Propagacion_C1.png') 
+plt.savefig('Practicas/Practica_02/Actividad_1/Resultados/Propagacion_C1.png') 
 plt.show()
+
+#Grafica para el informe
+
+# --- Create a single figure and axes ---
+fig, ax = plt.subplots(figsize=(7, 6)) # figsize can be adjusted
+
+# --- Graficar la Magnitud de la Transformada de Fourier (escala log) ---
+im_tf_plot = ax.imshow(log_intensity_s3_shifted, cmap='hot', extent=extent_cam2, origin='upper', aspect='equal')
+fig.colorbar(im_tf_plot, ax=ax, label='Log Magnitud $|\\mathcal{F}\\{$S(ξ,η)$\\}|$', shrink=0.8)
+ax.set_xlabel('$x´$ (1/mm)')
+ax.set_ylabel('$y´$ (1/mm)')
+ax.set_title('Campo en CAM2 $U(x´,y´)$') 
+ax.grid(False)
+zoom_range = 0.5
+ax.set_xlim(-zoom_range, zoom_range)
+ax.set_ylim(-zoom_range, zoom_range)
+
+plt.tight_layout() 
+plt.savefig('Practicas/Practica_02/Actividad_1/Resultados/U(x_,y_) en CAM2.png') 
+plt.show()
+
 
 
 # ===================================================================
@@ -432,13 +485,14 @@ dy_out = S2_dy
 fx = fx_vec 
 fy = fy_vec 
 extent_freq = [fx.min(), fx.max(), fy.min(), fy.max()] 
+extent_freq = [-15,15,-15,15] # Limitar el rango para mejor visualización
 
 # --- Graficar ---
 fig_tf, axes_tf = plt.subplots(1, 2, figsize=(15, 6)) 
 
 # --- Graficar del campo de estudio (CAM1, ruidoso) ---
 intensity_in = np.abs(campo_ruidoso)**2
-im_int = axes_tf[0].imshow(intensity_in, cmap='gray', extent=extent_cam1, origin='lower', aspect='equal') # Usando extent_cam1
+im_int = axes_tf[0].imshow(intensity_in, cmap='gray', extent=extent_freq, origin='lower', aspect='equal') # Usando extent_cam1
 fig_tf.colorbar(im_int, ax=axes_tf[0], label='Intensidad $|O(u,v)|^2$', shrink=0.8) # Usando O(u,v)
 axes_tf[0].set_xlabel('u (mm)')
 axes_tf[0].set_ylabel('v (mm)')
@@ -448,14 +502,37 @@ axes_tf[0].grid(False)
 # --- Graficar la Magnitud de la Transformada de Fourier (escala log) ---
 im_tf_plot = axes_tf[1].imshow(TF_log_magnitude, cmap='viridis', extent=extent_freq, origin='lower', aspect='auto') 
 fig_tf.colorbar(im_tf_plot, ax=axes_tf[1], label='Log Magnitud $|\\mathcal{F}\\{O(u,v)\\}|$', shrink=0.8) # Usando O(u,v)
-axes_tf[1].set_xlabel('$f_x$ (1/mm)') 
-axes_tf[1].set_ylabel('$f_y$ (1/mm)') 
-axes_tf[1].set_title('Espectro de Frecuencias del Campo en $CAM1$')
+axes_tf[1].set_xlabel('$x´$ (1/mm)') 
+axes_tf[1].set_ylabel('$y´$ (1/mm)') 
+axes_tf[1].set_title('Campo U(x´,y´) en $CAM2$')
 axes_tf[1].grid(False)
+axes_tf[1].set_xlim(-15,15) 
+axes_tf[1].set_ylim(-15,15)
 
 plt.tight_layout() 
-plt.savefig('TF de 0(u,v).png') 
+plt.savefig('Practicas/Practica_02/Actividad_1/Resultados/TF de 0(u,v).png') 
 plt.show()
+
+#Grafica para el informe
+
+# --- Create a single figure and axes ---
+fig, ax = plt.subplots(figsize=(7, 6)) # figsize can be adjusted
+
+# --- Graficar la Magnitud de la Transformada de Fourier (escala log) ---
+im_tf_plot = ax.imshow(TF_log_magnitude, cmap='hot', extent=extent_freq, origin='lower', aspect='auto')
+fig.colorbar(im_tf_plot, ax=ax, label='Log Magnitud $|\\mathcal{F}\\{O(u,v)\\}|$', shrink=0.8) # Use ax here
+ax.set_xlabel('$x´$ (1/mm)')
+ax.set_ylabel('$y´$ (1/mm)')
+ax.set_title('Campo U(x´,y´) en $CAM2$')
+ax.grid(False)
+zoom_range = 5 
+ax.set_xlim(-zoom_range, zoom_range)
+ax.set_ylim(-zoom_range, zoom_range)
+
+plt.tight_layout() 
+plt.savefig('Practicas/Practica_02/Actividad_1/Resultados/U(x_,y_.png') 
+plt.show()
+
 
 
 # ===================================================================
@@ -524,7 +601,7 @@ axes_peaks[1].legend()
 axes_peaks[1].grid(True)
 
 plt.tight_layout()
-plt.savefig('Perfiles_frecuencia_picos.png')
+plt.savefig('Practicas/Practica_02/Actividad_1/Resultados/Perfiles_frecuencia_picos.png')
 plt.show() 
 
 # ===================================================================
@@ -599,13 +676,16 @@ gaussian_mask_01 = 1.0 - gaussian_mask_10
 
 # --- Graficar la forma de la mascara ---
 plt.figure(figsize=(7, 6))
-plt.imshow(gaussian_mask_01, cmap='gray', extent=[fx.min(), fx.max(), fy.min(), fy.max()], origin='lower', aspect='equal', vmin=0, vmax=1)
+extent_mask = [-10,10,-10,10] # Limitar el rango para mejor visualización
+plt.imshow(gaussian_mask_01, cmap='gray', extent=extent_mask, origin='lower', aspect='equal', vmin=0, vmax=1)
 plt.colorbar(label='Transmitancia de la Máscara Gaussiana')
 plt.title(f'Máscara de Muesca Gaussiana (Sigma Alrededor={sigma_noise_freq:.2f}, Sigma={sigma_freq:.2f} 1/mm)')
 plt.xlabel('$f_x$ (1/mm)')
 plt.ylabel('$f_y$ (1/mm)')
+plt.xlim(-10,10)
+plt.ylim(-10,10)
 
-plt.savefig('mascara_gaussiana.png')
+plt.savefig('Practicas/Practica_02/Actividad_1/Resultados/mascara_gaussiana.png')
 plt.show()
 
 # ===================================================================
@@ -654,5 +734,5 @@ axes_final[1].set_title('Campo en CAM1 Filtrado')
 axes_final[1].grid(False)
 
 plt.tight_layout()
-plt.savefig('Imagen_Filtrada.png')
+plt.savefig('Practicas/Practica_02/Actividad_1/Resultados/Imagen_Filtrada.png')
 plt.show()
