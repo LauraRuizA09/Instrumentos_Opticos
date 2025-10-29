@@ -405,16 +405,15 @@ plt.show()
 
 #Grafica para el informe
 
-fig, ax = plt.subplots(figsize=(7, 6)) # figsize can be adjusted
+fig_, ax_ = plt.subplots(figsize=(7, 6)) # figsize can be adjusted
 
 # --- Graficar la Magnitud de la Transformada de Fourier (escala log) ---
-im_tf_plot = ax.imshow(intensity_S2, cmap='gray', extent=extent_cam1, origin='lower', aspect='equal')
-fig.colorbar(im_tf_plot, ax=ax, label='Intensidad |S2|^2', shrink=0.8)
-ax.set_xlabel('u (mm)')
-ax.set_ylabel('v (mm)')
-ax.set_title('Campo en CAM1 $O(u,v)$') 
-ax.grid(False)
-
+im_tf_plot_ = ax_.imshow(intensity_S2, cmap='gray', extent=extent_cam1, origin='lower', aspect='equal')
+fig_.colorbar(im_tf_plot_, ax=ax_, label='Intensidad |S2|^2', shrink=0.8)
+ax_.set_xlabel('u (mm)')
+ax_.set_ylabel('v (mm)')
+ax_.set_title('Campo en CAM1 $O(u,v)$') 
+ax_.grid(False)
 
 plt.tight_layout() 
 plt.savefig('Practicas/Practica_02/Actividad_1/O(u,v)en CAM1.png') 
