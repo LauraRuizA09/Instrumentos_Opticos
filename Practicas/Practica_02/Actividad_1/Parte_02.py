@@ -405,7 +405,21 @@ plt.show()
 
 #Grafica para el informe
 
-# --- Create a single figure and axes ---
+fig, ax = plt.subplots(figsize=(7, 6)) # figsize can be adjusted
+
+# --- Graficar la Magnitud de la Transformada de Fourier (escala log) ---
+im_tf_plot = ax.imshow(intensity_S2, cmap='gray', extent=extent_cam1, origin='lower', aspect='equal')
+fig.colorbar(im_tf_plot, ax=ax, label='Intensidad |S2|^2', shrink=0.8)
+ax.set_xlabel('u (mm)')
+ax.set_ylabel('v (mm)')
+ax.set_title('Campo en CAM1 $O(u,v)$') 
+ax.grid(False)
+
+
+plt.tight_layout() 
+plt.savefig('Practicas/Practica_02/Actividad_1/O(u,v)en CAM1.png') 
+plt.show()
+
 fig, ax = plt.subplots(figsize=(7, 6)) # figsize can be adjusted
 
 # --- Graficar la Magnitud de la Transformada de Fourier (escala log) ---
@@ -530,7 +544,7 @@ ax.set_xlim(-zoom_range, zoom_range)
 ax.set_ylim(-zoom_range, zoom_range)
 
 plt.tight_layout() 
-plt.savefig('Practicas/Practica_02/Actividad_1/Resultados/U(x_,y_.png') 
+plt.savefig('Practicas/Practica_02/Actividad_1/Resultados/U(x_,y_).png') 
 plt.show()
 
 
@@ -547,7 +561,7 @@ center_x_index = cols // 2
 # Encontrar picos , Prominence ayuda a encontrar picos que sobresalen
 peaks_fx_indices, properties_fx = find_peaks(sum_along_fy, prominence=np.max(sum_along_fy)/10) # prominencia > 10% del max
 
-# Filtrar el pico central (DC) si está presente
+# Filtrar el pico central 
 peaks_fx_indices = peaks_fx_indices[peaks_fx_indices != center_x_index]
 
 # Obtener las frecuencias fx correspondientes
@@ -626,7 +640,7 @@ def create_gaussian_notch_mask(TF_shape, fx_coords, fy_coords, noise_freq_coords
             distance_sq_noise = (FX - center_fx)**2 + (FY - center_fy)**2
             gaussian_dip = 1.0 - np.exp(-distance_sq_noise / (2 * sigma_alrededor**2))
             gaussian_notch_mask *= gaussian_dip
-            #print(f"  Muesca Gaussiana aplicada centrada en ({center_fx:.2f}, {center_fy:.2f})")
+            #print(f"  Mascara Gaussiana aplicada centrada en ({center_fx:.2f}, {center_fy:.2f})")
 
     # --- Crear y aplicar mascara Gaussiana para el centro (si sigma > 0) ---
     if sigma > 0:
@@ -679,13 +693,77 @@ plt.figure(figsize=(7, 6))
 extent_mask = [-10,10,-10,10] # Limitar el rango para mejor visualización
 plt.imshow(gaussian_mask_01, cmap='gray', extent=extent_mask, origin='lower', aspect='equal', vmin=0, vmax=1)
 plt.colorbar(label='Transmitancia de la Máscara Gaussiana')
-plt.title(f'Máscara de Muesca Gaussiana (Sigma Alrededor={sigma_noise_freq:.2f}, Sigma={sigma_freq:.2f} 1/mm)')
+plt.title(f'Máscara Gaussiana (Sigma={sigma_noise_freq:.2f} 1/mm)')
 plt.xlabel('$f_x$ (1/mm)')
 plt.ylabel('$f_y$ (1/mm)')
-plt.xlim(-10,10)
-plt.ylim(-10,10)
+plt.xlim(-5,5)
+plt.ylim(-5,5)
 
 plt.savefig('Practicas/Practica_02/Actividad_1/Resultados/mascara_gaussiana.png')
+plt.show()
+
+#Grafica para el informe
+# --- Valores de sigma_noise_freq para graficar ---
+sigma_noise_freq_values = [0.1, 0.3, 0.5, 0.7, 0.9, 1.2] # Puedes ajustar estos valores
+sigma_freq = 0   # Sigma para la masacara en el centro (1/mm) - Se mantiene en 0
+# --- Crear la figura con subplots ---
+n_plots = len(sigma_noise_freq_values)
+ncols = 3 
+nrows = int(np.ceil(n_plots / ncols))
+# Ajusta el figsize para que sea similar en proporción al (15, 6) que mostraste, 
+# pero para una cuadrícula 2x3. (15 de ancho por 6*2 = 12 de alto)
+fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(15, 10), squeeze=False)
+axes_flat = axes.flatten() 
+
+# --- Rango de visualización ---
+extent_mask = [-2, 2, -2, 2] # Limitar el rango para mejor visualización
+
+# --- Iterar sobre los valores de sigma y graficar ---
+plot_images = [] 
+for i, sigma_noise_freq in enumerate(sigma_noise_freq_values):
+    if i < len(axes_flat): 
+        ax = axes_flat[i] 
+
+        # --- Crear la máscara GAUSSIANA que no deja pasar las frecuencias ---
+        gaussian_mask_10_ = create_gaussian_notch_mask(TF_shifted.shape, fx, fy, unique_target_coords_freq, sigma_noise_freq, sigma_freq)
+
+        # --- Mascara que solo deja pasar las frecuencias (invertir la muesca) ---
+        gaussian_mask_01_ = 1.0 - gaussian_mask_10_
+
+        # --- Graficar la forma de la mascara en el subplot ---
+        im = ax.imshow(gaussian_mask_01_, cmap='gray', extent=extent_mask, origin='lower', aspect='equal', vmin=0, vmax=1)
+        plot_images.append(im) # Guardar la imagen para la colorbar global
+        ax.set_title(f'$\\sigma_{{ruido}}$={sigma_noise_freq:.2f} 1/mm')
+        ax.set_xlabel('$f_x$ (1/mm)')
+        ax.set_ylabel('$f_y$ (1/mm)')
+        zoom_limit = 1.5 # Cambia este valor para más o menos zoom (ej: 3.0)
+        ax.set_xlim(-zoom_limit, zoom_limit)
+        ax.set_ylim(-zoom_limit, zoom_limit)
+        ax.grid(False) 
+
+    else:
+        break
+
+# --- Ocultar ejes no utilizados ---
+for j in range(i + 1, nrows * ncols):
+    if j < len(axes_flat):
+        fig.delaxes(axes_flat[j])
+
+# --- Ajustar el layout ---
+fig.suptitle('Máscaras Gaussiana variando $\\sigma_{{ruido}}$', fontsize=16, y=0.98) 
+
+# --- AJUSTE DE LAYOUT Y COLORBAR (Soluciona el problema de superposición) ---
+# Deja espacio a la derecha (0.92) y arriba (0.95) para la colorbar y el título
+plt.tight_layout(rect=[0, 0.03, 0.92, 0.95]) 
+
+# Añadir la barra de color explícitamente en el espacio reservado
+cbar_ax = fig.add_axes([0.94, 0.15, 0.02, 0.7]) # [left, bottom, width, height]
+# Aplicando el 'shrink=0.8' de tu ejemplo (implícito en el alto=0.7)
+fig.colorbar(plot_images[0], cax=cbar_ax, label='Transmitancia')
+
+
+# --- Guardar y mostrar la figura ---
+plt.savefig('Practicas/Practica_02/Actividad_1/Resultados/mascaras_gaussianas_comparacion.png')
 plt.show()
 
 # ===================================================================
