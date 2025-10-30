@@ -7,7 +7,7 @@ import sys
 
 # --- Configuración ---
 NOISY_IMG_PATH = 'Practicas/Practica_02/Actividad_1/Noise images/Noise (9).png'
-FILTERED_IMG_PATH = 'Practicas/Practica_02/Actividad_1/CORE_FILTR.png'
+FILTERED_IMG_PATH = 'Practicas/Practica_02/Actividad_1/Variacion Sigma/CORE_FILTR.png'
 
 # Fracción del espectro que consideramos "altas frecuencias"
 # 0.15 = el 15% central es baja frecuencia, el resto es alta.
@@ -144,4 +144,6 @@ circle = plt.Circle((filtered_img.shape[1]//2, filtered_img.shape[0]//2), radius
 ax3.add_patch(circle)
 
 plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # Ajustar para el supertítulo
+
+plt.savefig('Practicas/Practica_02/Actividad_1/Correlaciones/filtrado.png')
 plt.show()
