@@ -678,7 +678,7 @@ unique_target_coords_freq = list(target_coords_freq_set)
 
 # --- Parámetros de la máscara GAUSSIANA ---
 
-sigma_noise_freq = 0.3 # Sigma para las masacaras de alrededor del centro  (1/mm)
+sigma_noise_freq = 0.02 # Sigma para las masacaras de alrededor del centro  (1/mm)
 sigma_freq = 0   # Sigma para la masacara en el centro (1/mm)
 
 # --- Crear la máscara GAUSSIANA que no deja pasar las frecuencias (altas) ---
