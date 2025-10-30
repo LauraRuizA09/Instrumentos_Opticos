@@ -6,12 +6,12 @@ from skimage.measure import shannon_entropy
 import sys
 
 # --- Configuración ---
-NOISY_IMG_PATH = 'Practicas/Practica_02/Actividad_1/Noise images/Noise (9).png'
-FILTERED_IMG_PATH = 'Practicas/Practica_02/Actividad_1/Variacion Sigma/CORE_FILTR.png'
+NOISY_IMG_PATH = 'Practicas/Practica_02/Actividad_1/Datos Experimentales/Imagen SIN Filtrar.png'
+FILTERED_IMG_PATH = 'Practicas/Practica_02/Actividad_1/Datos Experimentales/Imagen Filtrada.png'
 
 # Fracción del espectro que consideramos "altas frecuencias"
 # 0.15 = el 15% central es baja frecuencia, el resto es alta.
-HF_FREQUENCY_RATIO = 0.25
+HF_FREQUENCY_RATIO = 0.5
 # ---------------------
 
 def load_image_or_exit(image_path):
@@ -145,5 +145,5 @@ ax3.add_patch(circle)
 
 plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # Ajustar para el supertítulo
 
-plt.savefig('Practicas/Practica_02/Actividad_1/Correlaciones/filtrado_computacional.png')
+plt.savefig('Practicas/Practica_02/Actividad_1/Correlaciones/filtrado_experimental.png')
 plt.show()
