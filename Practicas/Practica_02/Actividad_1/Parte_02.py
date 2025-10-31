@@ -169,34 +169,42 @@ lam = 0.000633 # Longitud de onda en mm (633 nm)
 k = 2 * np.pi / lam # Numero de onda
 
 
-#-----Muestreo Horizontal-------
+# ===================================================================
+#                   Muestreo GENERAL
+# ===================================================================
+
+#----- Horizontal-------
 Nx = 1024 # Número de muestras (píxeles)
 Lx = 10 # Tamaño físico de la ventana (mm)
 dx = Lx / Nx # Paso espacial Δx
 dfx = 1 / Lx # Paso en frecuencia Δfx
 
-#-----Muestreo Vertical-------
+#----- Vertical-------
 Ny = 1024 # Número de muestras (píxeles)
 Ly = 10 # Tamaño físico de la ventana (mm)
 dy = Ly / Ny # Paso espacial Δy
 dfy = 1 / Ly # Paso en frecuencia Δfy
 
-# ---------- Coordenadas espaciales (ξ, η) ----------
-# Usamos xi (ξ) y eta (η) para definir S(ξ,η)
+# ===================================================================
+#                  Coordenadas espaciales (ξ, η)
+# ===================================================================
 
+# Usamos xi (ξ) y eta (η) para definir S(ξ,η)
 n = np.arange(Nx) - Nx//2 # Contadores centrados
 m = np.arange(Ny) - Ny//2
 xi_vec = n * dx 
 eta_vec = m * dy
 xi, eta = np.meshgrid(xi_vec, eta_vec) 
 
-# ---------- Coordenadas de frecuencia (fx, fy) ----------
+# ===================================================================
+#                  Coordenadas de frecuencia (fx, fy)
+# ===================================================================
+
 p = np.arange(Nx) - Nx//2 # Contadores centrados
 q = np.arange(Ny) - Ny//2
 fx_vec = p * dfx 
 fy_vec = q * dfy
 fx, fy = np.meshgrid(fx_vec, fy_vec) 
-
 
 # ===================================================================
 #              Definición de la Transmitancia del Objeto
@@ -246,11 +254,14 @@ campo_entrada_1 = transmitancia_entrada('imagen') # S(ξ,η)
 
 def propagar_ABCD_(U1, A, B, C, D, lam, CAM):
 
- #Caso en el que estamos:
+ #Caso en el que estamos, sacaado del analisis analitico:
  #salida_ (t(x,y)) = (np.exp(1j*k*f) / 1j*lam*f) * (np.fft.fft2(campo_entrada_1)* dx * dy)
  #salida_t (O(u,v)) = (np.exp(-1j*k*f) / -1j*lam*f) * (np.fft.ifft2(salida_) * (Nx * Ny) * dfx * dfy)
+ 
+ #Escoger el muestreo segun la camara en la que vamos a observar el campo
 
  if CAM == 'CAM1':
+  
    #-----Muestreo Horizontal-------
   Nx = 1024 # Número de muestras (píxeles)
   Lx = 17.6 # Tamaño físico de la ventana (mm)
@@ -313,12 +324,13 @@ def propagar_ABCD_(U1, A, B, C, D, lam, CAM):
 
 
  # Coordenadas espaciales de salida: x2 = lambda*B*fx, y2 = lambda*B*fy.
- # El signo de B afecta correctamente la escala y posible inversión del eje.
  x_vec = fx_vec * lam * B
  y_vec = fy_vec * lam * B
+
  # Paso de muestreo en la salida. Usamos abs porque el paso siempre es positivo.
  dx2 = np.abs(x_vec[1] - x_vec[0]) if Nx > 1 else 0
  dy2 = np.abs(y_vec[1] - y_vec[0]) if Ny > 1 else 0
+ 
  # Mallas de coordenadas 2D de salida. Usamos 'xy' para consistencia.
  x_mesh, y_mesh = np.meshgrid(x_vec, y_vec, indexing='xy')
 
@@ -430,7 +442,9 @@ plt.tight_layout() # Ajusta el espaciado para evitar superposiciones
 plt.savefig('Practicas/Practica_02/Actividad_1/Resultados/Propagacion_C1.png') 
 plt.show()
 
-#Grafica para el informe
+# ===================================================================
+#           Graficar para el informe O(u,v) en CAM1
+# ===================================================================
 
 fig_, ax_ = plt.subplots(figsize=(7, 6)) # figsize can be adjusted
 
@@ -446,9 +460,11 @@ plt.tight_layout()
 plt.savefig('Practicas/Practica_02/Actividad_1/Resultados/O(u,v)en CAM1.png') 
 plt.show()
 
-fig, ax = plt.subplots(figsize=(7, 6)) # figsize can be adjusted
+# ===================================================================
+#   Graficar la Magnitud de la Transformada de Fourier (escala log)
+# ===================================================================
 
-# --- Graficar la Magnitud de la Transformada de Fourier (escala log) ---
+fig, ax = plt.subplots(figsize=(7, 6)) # figsize can be adjusted
 
 im_tf_plot = ax.imshow(log_intensity_s3_shifted, cmap='hot', extent=extent_cam2, origin='upper', aspect='equal')
 fig.colorbar(im_tf_plot, ax=ax, label='Log Magnitud $|\\mathcal{F}\\{$S(ξ,η)$\\}|$', shrink=0.8)
@@ -463,7 +479,6 @@ ax.set_ylim(-zoom_range, zoom_range)
 plt.tight_layout() 
 plt.savefig('Practicas/Practica_02/Actividad_1/Resultados/U(x_,y_) en CAM2.png') 
 plt.show()
-
 
 
 # ===================================================================
