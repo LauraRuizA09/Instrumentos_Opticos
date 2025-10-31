@@ -244,12 +244,52 @@ campo_entrada_1 = transmitancia_entrada('imagen') # S(ξ,η)
 # ===================================================================
 
 
-def propagar_ABCD_(U1, A, B, C, D, lam):
+def propagar_ABCD_(U1, A, B, C, D, lam, CAM):
 
  #Caso en el que estamos:
  #salida_ (t(x,y)) = (np.exp(1j*k*f) / 1j*lam*f) * (np.fft.fft2(campo_entrada_1)* dx * dy)
  #salida_t (O(u,v)) = (np.exp(-1j*k*f) / -1j*lam*f) * (np.fft.ifft2(salida_) * (Nx * Ny) * dfx * dfy)
 
+ if CAM == 'CAM1':
+   #-----Muestreo Horizontal-------
+  Nx = 1024 # Número de muestras (píxeles)
+  Lx = 17.6 # Tamaño físico de la ventana (mm)
+  dx = Lx / Nx # Paso espacial Δx
+  dfx = 1 / Lx # Paso en frecuencia Δfx
+
+  #-----Muestreo Vertical-------
+  Ny = 1024 # Número de muestras (píxeles)
+  Ly = 13.3 # Tamaño físico de la ventana (mm)
+  dy = Ly / Ny # Paso espacial Δy
+  dfy = 1 / Ly # Paso en frecuencia Δfy
+
+ elif CAM == 'CAM2':
+   
+  #-----Muestreo Horizontal-------
+  Nx = 1024 # Número de muestras (píxeles)
+  Lx = 6.6 # Tamaño físico de la ventana (mm)
+  dx = Lx / Nx # Paso espacial Δx
+  dfx = 1 / Lx # Paso en frecuencia Δfx
+
+  #-----Muestreo Vertical-------
+  Ny = 1024 # Número de muestras (píxeles)
+  Ly = 5.3 # Tamaño físico de la ventana (mm)
+  dy = Ly / Ny # Paso espacial Δy
+  dfy = 1 / Ly # Paso en frecuencia Δfy
+
+ else: 
+  #-----Muestreo Horizontal-------
+  Nx = np.shape(U1)[0] # Número de muestras (píxeles)
+  Lx = 10 # Tamaño físico de la ventana (mm)
+  dx = Lx / Nx # Paso espacial Δx
+  dfx = 1 / Lx # Paso en frecuencia Δfx
+
+  #-----Muestreo Vertical-------
+  Ny = np.shape(U1)[1]  # Número de muestras (píxeles)
+  Ly = 10 # Tamaño físico de la ventana (mm)
+  dy = Ly / Ny # Paso espacial Δy
+  dfy = 1 / Ly # Paso en frecuencia Δfy
+   
  # --- Coordenadas de entrada ---
  n = np.arange(Nx) - Nx//2
  m = np.arange(Ny) - Ny//2
@@ -304,16 +344,16 @@ def propagar_ABCD_(U1, A, B, C, D, lam):
 T_xy = 1 
 
 # Calculamos la propagacion de la primera trayectoria donde veremos el campo t(x,y) en el plano del espejo M1
-S1_campo, S1_x_mesh, S1_y_mesh, S1_dx, S1_dy = propagar_ABCD_(campo_entrada_1, A_1, B_1, C_1, D_1, lam) * T_xy
+S1_campo, S1_x_mesh, S1_y_mesh, S1_dx, S1_dy = propagar_ABCD_(campo_entrada_1, A_1, B_1, C_1, D_1, lam,'CAM1') * T_xy
 
 #Definir los campos de entrada para la segunda parte de la trayectoria 01 pt 02
 campo_entrada_2 = S1_campo 
 
 #Calculamos la propagacion de la segunda trayectoria donde veremos el campo O(u,v) en el plano de la camara CAM1
-S2_campo, S2_x_mesh, S2_y_mesh, S2_dx, S2_dy = propagar_ABCD_(campo_entrada_2, A_2, B_2, C_2, D_2, lam)
+S2_campo, S2_x_mesh, S2_y_mesh, S2_dx, S2_dy = propagar_ABCD_(campo_entrada_2, A_2, B_2, C_2, D_2, lam,'CAM1')
 
 # Calculamos la propagacion de la segunda trayectoria donde veremos el campo U(x,y) en el plano de la camara CAM2
-S3_campo, S3_x_mesh, S3_y_mesh, S3_dx, S3_dy = propagar_ABCD_(campo_entrada_1, A_3, B_3, C_3, D_3, lam)
+S3_campo, S3_x_mesh, S3_y_mesh, S3_dx, S3_dy = propagar_ABCD_(campo_entrada_1, A_3, B_3, C_3, D_3, lam, 'CAM2')
 
 print(S3_campo.shape)
 
@@ -341,18 +381,7 @@ intensity_S1 = np.abs(S1_campo)**2
 # Límites del espejo M1 
 ancho_m1_mm = 10.4
 alto_m1_mm = 5.8
-
-# Usas las dimensiones del espejo para definir el extent directamente
 extent_m1 = [-ancho_m1_mm/2, ancho_m1_mm/2, -alto_m1_mm/2, alto_m1_mm/2]
-#extent_S1 = [S1_x_mesh.min(), S1_x_mesh.max(), S1_y_mesh.min(), S1_y_mesh.max()]
-#im_s1 = axes[1].imshow(intensity_S1, cmap='gray', extent=extent_m1, origin='lower', aspect='equal')
-#fig.colorbar(im_s1, ax=axes[1], label='Intensidad |S1|^2', shrink=0.8)
-#axes[1].set_xlabel('x (mm)') # Coordenadas del plano M1
-#axes[1].set_ylabel('y (mm)')
-#axes[1].set_title('Campo en M1 $t(x,y)$') # Título más descriptivo
-#axes[1].grid(False)
-#axes[1].set_xlim(-0.05,0.05)
-#axes[1].set_ylim(-0.05,0.05)
 
 # --- Intensidad de S2_campo O(u,v) ---
 intensity_S2 = np.abs(S2_campo)**2
@@ -360,8 +389,6 @@ intensity_S2 = np.abs(S2_campo)**2
 # Límites de la cámara CAM1
 ancho_cam1_mm = 4640 * 3.8e-3 # Ancho físico en mm
 alto_cam1_mm = 3506 * 3.8e-3 # Alto físico en mm
-
-# Usas las dimensiones de la cámara para definir el extent directamente
 extent_cam1 = [-ancho_cam1_mm/2, ancho_cam1_mm/2, -alto_cam1_mm/2, alto_cam1_mm/2]
 
 im_s2 = axes[1].imshow(intensity_S2, cmap='gray', extent=extent_cam1, origin='lower', aspect='equal')
@@ -416,12 +443,13 @@ ax_.set_title('Campo en CAM1 $O(u,v)$')
 ax_.grid(False)
 
 plt.tight_layout() 
-plt.savefig('Practicas/Practica_02/Actividad_1/O(u,v)en CAM1.png') 
+plt.savefig('Practicas/Practica_02/Actividad_1/Resultados/O(u,v)en CAM1.png') 
 plt.show()
 
 fig, ax = plt.subplots(figsize=(7, 6)) # figsize can be adjusted
 
 # --- Graficar la Magnitud de la Transformada de Fourier (escala log) ---
+
 im_tf_plot = ax.imshow(log_intensity_s3_shifted, cmap='hot', extent=extent_cam2, origin='upper', aspect='equal')
 fig.colorbar(im_tf_plot, ax=ax, label='Log Magnitud $|\\mathcal{F}\\{$S(ξ,η)$\\}|$', shrink=0.8)
 ax.set_xlabel('$x´$ (1/mm)')
@@ -489,14 +517,35 @@ TF_magnitude = np.abs(TF_shifted)               # Magnitud de la TF
 TF_log_magnitude = np.log1p(TF_magnitude)       # Usar escala logarítmica para mejor visualización (log(1+x) para evitar log(0))
 
 # --- Calcular extensión espacial y de frecuencia ---
+   
+#-----Muestreo Horizontal-------
+Nx_ = 1024 # Número de muestras (píxeles)
+Lx_ = 6.6 # Tamaño físico de la ventana (mm)
+dx_ = Lx_ / Nx_ # Paso espacial Δx
+dfx = 1 / Lx_ # Paso en frecuencia Δfx
+
+#-----Muestreo Vertical-------
+Ny_ = 1024 # Número de muestras (píxeles)
+Ly_ = 5.3 # Tamaño físico de la ventana (mm)
+dy_ = Ly_ / Ny_ # Paso espacial Δy
+dfy = 1 / Ly_ # Paso en frecuencia Δfy
+
+# ---------- Coordenadas de frecuencia (fx, fy) ----------
+p = np.arange(Nx) - Nx//2 # Contadores centrados
+q = np.arange(Ny) - Ny//2
+fx_vec = p * dfx 
+fy_vec = q * dfy
+fx, fy = np.meshgrid(fx_vec, fy_vec) 
+
 # Extensión espacial ya definida como extent_cam1
 # Calcular frecuencias para los ejes (usando las dimensiones de salida S2)
-dx_out = S2_dx # Paso espacial en la salida
-dy_out = S2_dy
+dx_out = dfx # Paso espacial en la salida
+dy_out = dfy
 
 # Usaremos las frecuencias originales fx_vec, fy_vec ya que la máscara se define allí
 fx = fx_vec 
 fy = fy_vec 
+
 extent_freq = [fx.min(), fx.max(), fy.min(), fy.max()] 
 extent_freq = [-15,15,-15,15] # Limitar el rango para mejor visualización
 
@@ -519,8 +568,8 @@ axes_tf[1].set_xlabel('$x´$ (1/mm)')
 axes_tf[1].set_ylabel('$y´$ (1/mm)') 
 axes_tf[1].set_title('Campo U(x´,y´) en $CAM2$')
 axes_tf[1].grid(False)
-axes_tf[1].set_xlim(-15,15) 
-axes_tf[1].set_ylim(-15,15)
+axes_tf[1].set_xlim(-2.5,2.5) 
+axes_tf[1].set_ylim(-2.5,2.5)
 
 plt.tight_layout() 
 plt.savefig('Practicas/Practica_02/Actividad_1/Resultados/TF de 0(u,v).png') 
@@ -678,7 +727,7 @@ unique_target_coords_freq = list(target_coords_freq_set)
 
 # --- Parámetros de la máscara GAUSSIANA ---
 
-sigma_noise_freq = 0.02 # Sigma para las masacaras de alrededor del centro  (1/mm)
+sigma_noise_freq = 0.3 # Sigma para las masacaras de alrededor del centro  (1/mm)
 sigma_freq = 0   # Sigma para la masacara en el centro (1/mm)
 
 # --- Crear la máscara GAUSSIANA que no deja pasar las frecuencias (altas) ---
