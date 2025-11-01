@@ -4,58 +4,74 @@ import matplotlib.pyplot as plt
 import sys
 # Eliminadas las importaciones de skimage que ya no se usan
 
-# --- Configuración ---
+# ===================================================================
+#                Cargar datos e imágenes
+# ===================================================================
+
 NOISY_IMG_PATH = 'Practicas/Practica_02/Actividad_1/Noise images/Noise (9).png'
 
-# Define aquí TODAS las imágenes filtradas que quieres comparar
-# Es un diccionario que mapea la etiqueta (el sigma) a la ruta del archivo
 FILTERED_IMAGES = {
     "σ=0.02": 'Practicas/Practica_02/Actividad_1/Variacion Sigma/sigma_0.02.png',
     "σ=0.10": 'Practicas/Practica_02/Actividad_1/Variacion Sigma/sigma_0.1.png',
     "σ=0.30": 'Practicas/Practica_02/Actividad_1/Variacion Sigma/CORE_FILTR.png',
     "σ=0.50": 'Practicas/Practica_02/Actividad_1/Variacion Sigma/sigma_0.5.png',
     "σ=0.70": 'Practicas/Practica_02/Actividad_1/Variacion Sigma/sigma_0.7.png'
-    # NOTA: Puedes añadir las de 0.90 y 1.20 si las tienes
+    
 }
 
 # Fracción del espectro que consideramos "altas frecuencias"
 HF_FREQUENCY_RATIO = 0.25
-# ---------------------
+
+# ===================================================================
+#                Funciones a utilizar
+# ===================================================================
 
 def load_image_or_exit(image_path):
-    """Carga una imagen en escala de grises o termina el script si no la encuentra."""
+
+    #Carga una imagen en escala de grises o termina el script si no la encuentra
     image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
     if image is None:
         print(f"Error: No se pudo cargar la imagen en: {image_path}")
-        print("Por favor, asegúrate de que el archivo exista.")
+        print("Por favor, asegúrate de que el archivo exista en la misma carpeta que el script.")
         sys.exit(1)
     return image
 
 def get_fft_spectrum(image):
-    """Calcula el espectro de magnitud 2D centrado."""
+
+    # Calcula el espectro de magnitud 2D centrado y en escala logarítmica
+    # Convertir a float para la FFT
     image_float = image.astype(np.float32)
+    
+    # Aplicar FFT y centrar (shift) 
     f = np.fft.fft2(image_float)
     fshift = np.fft.fftshift(f)
-    return fshift
+    
+    # Calcular el espectro de magnitud para visualización (logarítmico)
+    magnitude_spectrum = 20 * np.log(np.abs(fshift) + 1) # +1 para evitar log(0)
+    
+    return fshift, magnitude_spectrum
 
 def calculate_hf_energy(fshift, hf_ratio):
-    """Calcula la energía total en las altas frecuencias del espectro."""
+
+    #Calcula la energía total en las altas frecuencias del espectro
     rows, cols = fshift.shape
     crow, ccol = rows // 2, cols // 2
     
+    # Definir el radio de la banda de bloqueo (bajas frecuencias)
     radius = int(min(crow, ccol) * hf_ratio)
     
+    # Crear una máscara circular (1 en altas frec, 0 en bajas frec)
     y, x = np.ogrid[-crow:rows-crow, -ccol:cols-ccol]
-    
-    # Máscara de paso-alto (1 en altas frec, 0 en bajas frec)
     mask = x*x + y*y > radius*radius
     
     # Calcular la energía de alta frecuencia (Suma de |F(u,v)|^2)
-    energy = np.sum(np.abs(fshift[mask])**2)
-    return energy
+    hf_energy = np.sum(np.abs(fshift[mask])**2)
+    return hf_energy
 
-# --- 1. Cargar Imagen Ruidosa y Analizarla (Solo una vez) ---
-print("--- ANÁLISIS CUANTITATIVO DE FILTROS GAUSSIANOS ---")
+# ===================================================================
+#                     Cargar imágenes
+# ===================================================================
+
 noisy_img = load_image_or_exit(NOISY_IMG_PATH)
 noisy_fshift = get_fft_spectrum(noisy_img)
 
@@ -83,7 +99,10 @@ for sigma_label, img_path in FILTERED_IMAGES.items():
     results_hf_reduction.append(hf_reduction_pct)
     result_labels.append(sigma_label)
 
-# --- Impresión de Tabla de Resumen ---
+# ===================================================================
+#                            Resultados
+# ===================================================================
+
 print("\n--- ANÁLISIS ---")
 print(f"{'Filtro':<8} | {'Porcentaje de reducción de ruido':<18}")
 print("-" * 30)
@@ -91,17 +110,16 @@ for i, label in enumerate(result_labels):
     print(f"{label:<8} | {results_hf_reduction[i]:<18.1f}")
 print("---------------------------------")
 
+# ===================================================================
+#                    Graficas Comparativas
+# ===================================================================
 
-# --- 3. Visualización (Solo la gráfica de barras de Reducción de Ruido) ---
-
-# Crear 1 sola gráfica
 fig, ax = plt.subplots(1, 1, figsize=(10, 6), constrained_layout=True)
 fig.suptitle(f'Efectividad del Filtro', fontsize=16)
 
-# Generar colores para las barras
 colors = plt.cm.viridis(np.linspace(0.3, 0.9, len(result_labels)))
 
-# Gráfica: Reducción de Ruido (HF)
+# Reducción de Ruido (HF)
 ax.bar(result_labels, results_hf_reduction, color=colors, width=0.6)
 ax.set_title('Reducción de Ruido (Energía de Alta Frecuencia)')
 ax.set_ylabel('% de Energía Eliminada ')

@@ -766,6 +766,7 @@ plt.savefig('Practicas/Practica_02/Actividad_1/Resultados/mascara_gaussiana.png'
 plt.show()
 
 #Grafica para el informe
+
 # --- Valores de sigma_noise_freq para graficar ---
 sigma_noise_freq_values = [0.1, 0.3, 0.5, 0.7, 0.9, 1.2] # Puedes ajustar estos valores
 sigma_freq = 0   # Sigma para la masacara en el centro (1/mm) - Se mantiene en 0
