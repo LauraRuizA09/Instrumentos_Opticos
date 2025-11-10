@@ -1,0 +1,16 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from Microscopio import microscopio, plano_pupila
+lamda=533*1e-6 #mm
+M=20
+F_TL=200 #mm
+F_MO=F_TL/M  #mm
+Le=0.390 #mm
+Ln=0.390 #mm
+Sen=np.flipud(np.loadtxt(r"Practicas\Practica_02\MuestrasBio\MuestraBio_E05.csv",delimiter=",",dtype=complex))
+X,Y=plano_pupila(lamda,Sen, F_MO, Le, Ln)
+D=3
+P=(X**2+Y**2)<=(D/2)
+Suv, escala=microscopio(lamda,M,Sen,P,Le,Ln)
+plt.imshow(Suv.real,extent=escala,cmap="grey_r")
+plt.show()
