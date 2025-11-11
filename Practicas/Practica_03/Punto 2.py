@@ -24,6 +24,6 @@ Sen=np.sin(200*E*np.pi/Le).astype(np.complex128)
 X,Y=plano_pupila(lamda,Sen,F_MO, Le, Ln)
 P=(X**2+Y**2<=RPu**2)
 #-----------------------------------------------------------------
-Suv, escala=microscopio(lamda,M,Sen,P,Le,Ln)
+Suv, escala=microscopio(M,Sen,P,Le,Ln)
 plt.imshow(Suv.real,extent=escala,cmap="grey_r")
 plt.show()
