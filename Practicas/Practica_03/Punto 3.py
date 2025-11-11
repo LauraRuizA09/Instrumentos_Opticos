@@ -17,7 +17,5 @@ P=(X**2+Y**2)<=(D/2)
 #----------------Campo en el plano de observación-----------------
 Suv, escala=microscopio(M,Sen,P,Le,Ln)
 A=np.array([[1,2,3],[4,5,6]])
-print(A)
-print(np.shape(A))
 plt.imshow(Suv.real,extent=escala,cmap="grey_r")
 plt.show()
