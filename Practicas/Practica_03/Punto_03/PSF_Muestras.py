@@ -3,41 +3,75 @@
 # ===================================================================
 
 #-----Importamos las funciones para la trasnferencia de rayos ópticos------
-from Propagacion import propagar_campo_ABCD
-from Propagacion import matriz_propagacion
-from Propagacion import lente_delgada
-from Propagacion import matriz_del_sistema
-from Propagacion import plano_pupila
-from Propagacion import Lx, Ly, Nx, Ny 
+from Practicas.Practica_03.Punto_03.Propagacion_ import propagar_campo_ABCD
+from Practicas.Practica_03.Punto_03.Propagacion_ import matriz_propagacion
+from Practicas.Practica_03.Punto_03.Propagacion_ import lente_delgada
+from Practicas.Practica_03.Punto_03.Propagacion_ import matriz_del_sistema
+from Practicas.Practica_03.Punto_03.Propagacion_ import plano_pupila
+from Practicas.Practica_03.Punto_03.Propagacion_ import Lx, Ly, Nx, Ny 
 from scipy.interpolate import interp2d
 
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import time
 
 # ===================================================================
 #                 Definimos el campo de Entrada S(x,y)
 # ===================================================================
 
-ruta_script = os.path.dirname(os.path.abspath(__file__))
+# --- Función conversora (Corregida) ---
+def convertir_i_a_j(s):
+    # Reemplazamos 'i' por 'j'
+    texto_corregido = s.replace('i', 'j')
+    return complex(texto_corregido)
 
-# --- Función para corregir 'i' por 'j' ---
-def convertidor_complejo_i_a_j(bytes_string):
-    # loadtxt pasa los datos como "bytes", por eso usamos .decode()
-    string_limpio = bytes_string.decode().replace('i', 'j')
-    return complex(string_limpio)
+# --- Ruta y Carga ---
+ruta_archivo = r"Practicas/Practica_03/Punto_03/MuestrasBio/MuestraBio_E05.csv"
 
-nombre_archivo = os.path.join('MuestrasBio', 'MuestraBio_E05.csv')
+# 1. Necesitamos saber cuántas columnas hay
+with open(ruta_archivo, 'r') as f:
+    primera_linea = f.readline()
+    num_columnas = primera_linea.count(',') + 1
 
-ruta_completa_archivo = os.path.join(ruta_script, nombre_archivo)
+# 2. Creamos el diccionario de conversores
+conversores = {k: convertir_i_a_j for k in range(num_columnas)}
 
-campo_entrada_1 = np.loadtxt(
-        ruta_completa_archivo, 
-        dtype=np.complex128, 
-        delimiter=',',
-        converters=convertidor_complejo_i_a_j # <-- ¡AQUÍ ESTÁ LA MAGIA!
-    )
+# 3. Cargamos la MATRIZ COMPLETA usando np.genfromtxt
+#    (Nota: Aún no aplicamos flipud)
+print("Cargando matriz completa...")
+inicio = time.time()
+matriz_completa = np.genfromtxt(
+    ruta_archivo,
+    delimiter=",",
+    dtype=complex,
+    converters=conversores
+)
+print(f"Carga completa en {time.time() - inicio:.2f} s. Forma: {matriz_completa.shape}")
 
+# --- AQUÍ ESTÁ EL PASO CLAVE ---
+
+# 4. Cortamos (slice) la región central de 100x100
+Nx_deseado = 100
+Ny_deseado = 100
+
+Ny_full, Nx_full = matriz_completa.shape
+
+# Calculamos los puntos centrales
+y_centro = Ny_full // 2
+x_centro = Nx_full // 2
+
+# Calculamos los índices de inicio y fin
+fila_inicio = y_centro - (Ny_deseado // 2)
+fila_fin = y_centro + (Ny_deseado // 2)
+col_inicio = x_centro - (Nx_deseado // 2)
+col_fin = x_centro + (Nx_deseado // 2)
+
+# Hacemos el corte
+campo_central = matriz_completa[fila_inicio:fila_fin, col_inicio:col_fin]
+
+# 5. AHORA aplicamos el flipud al campo ya cortado
+campo_entrada_100x100 = np.flipud(campo_central)
 # ===================================================================
 #                 Calculo de la trayectoria
 # ===================================================================
@@ -78,7 +112,8 @@ print("Matriz hasta P(x,y):\n", M_1)
 # ===================================================================
 
 L_equal = [0,0]
-campo_prop_1, L_out, mesh = propagar_campo_ABCD(campo_entrada_1, L_in, lam, M_1, 'NO', L_equal )
+L_in = (Lx, Ly)
+campo_prop_1, L_out, mesh = propagar_campo_ABCD(campo_entrada_100x100, L_in, lam, M_1, 'NO', L_equal )
 
 #Multiplicamos el campo por la pupila y para eso debemos definirla
 
@@ -94,8 +129,8 @@ RPu = f_MO * NA          # Cálculo del radio (en mm) de la pupila P(x,y):
 Le = .39
 Ln = .39
 
-Ne = 1080
-Nn = 1080
+Ne = 100
+Nn = 100
 
 de = Le/Ne
 dn = Ln/Nn
@@ -154,13 +189,6 @@ campo_prop_2, L_camara_salida, mesh_camara = propagar_campo_ABCD(campo_prop_1_, 
 #            NUEVO: Modelado de la Cámara Alvium U-811m
 # ===================================================================
 print("Modelando el muestreo del sensor de la cámara...")
-# 1. Especificaciones de la cámara
-Nx_cam = 2848 # Píxeles (H)
-Ny_cam = 2848 # Píxeles (V)
-pixel_ = 0.00274       #sensor (Sony IMX546) 2.74 µm 
-
-Lx_camara = Nx_cam * pixel_  
-Ly_camara = Ny_cam * pixel_  
 
 # 2. Coordenadas (u,v) del sensor de la cámara
 u_cam_vec = (np.arange(Nx_cam) - Nx_cam // 2) * pixel_
@@ -189,7 +217,7 @@ print("Muestreo de cámara completado.")
 print("Generando gráficos...")
 
 # 1. Campo de Entrada (Muestra)
-I_entrada = np.abs(campo_entrada_1)**2
+I_entrada = np.abs(campo_entrada_100x100)**2
 
 # 2. Campo en la Pupila (Filtrado)
 I_pupila_filtrada = np.abs(campo_prop_1_)**2

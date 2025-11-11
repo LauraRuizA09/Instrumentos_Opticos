@@ -71,7 +71,7 @@ def transmitancia_entrada(tipo_de_objeto):
  elif tipo_de_objeto == 'imagen':
 
     # Cargar una imagen en escala de grises y normalizarla
-    imagen = Image.open('Practicas/Practica_02/Actividad_1/Noise images/Noise (9).png').convert('L')
+    imagen = Image.open('Practicas/Practica_03/Punto_02/TEST_USAF.jpeg').convert('L')
     imagen = imagen.resize((Nx, Ny)) # Redimensionar la imagen al tamaño Nx x Ny
     U0 = np.array(imagen) / 255.0 # Normalizar a [0, 1]
     U0 = U0.astype(np.complex128) # Convertir a tipo complejo para incluir fase si es necesario
@@ -173,6 +173,7 @@ def propagar_campo_ABCD(U_in, L_in_mm, lam_mm, M_system, Equal, L_diferente):
 
         Ny, Nx = U_in.shape
         Lx, Ly = L_in_mm
+        
         L_out_mm = (Lx * np.abs(A), Ly * np.abs(A))
         dx_out, dy_out = L_out_mm[0] / Nx, L_out_mm[1] / Ny
 

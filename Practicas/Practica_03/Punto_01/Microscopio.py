@@ -23,9 +23,9 @@ campo_entrada_1, L_in = transmitancia_entrada('imagen') # S(ξ,η)
 
 
 # Creamos el impulso (delta de Dirac) en el centro para calcular la PSF del sistema
-campo_entrada_1 = np.zeros((Ny, Nx), dtype=complex)
-campo_entrada_1[Ny//2, Nx//2] = 1.0 # Impulso en el origen
-L_in = (Lx, Ly)
+#campo_entrada_1 = np.zeros((Ny, Nx), dtype=complex)
+#campo_entrada_1[Ny//2, Nx//2] = 1.0 # Impulso en el origen
+#L_in = (Lx, Ly)
 
 # ===================================================================
 #                 Calculo de la trayectoria
@@ -150,6 +150,9 @@ I_pupila_filtrada = np.abs(campo_prop_1_)**2
 I_final_camara = np.abs(campo_prop_2)**2
 I_final_camara_ = np.abs(campo_prop_2)**2
 I_final_log = np.log(I_final_camara_ + 1e-10) # Usamos log(I) para ver los anillos débiles, Sumamos un bias para evitar log(0)
+
+#---------Guardar informaaicon para el otro punto---------
+np.save("Practicas/Practica_03/Punto_01/resultado_microscopio.npy", I_final_camara)
 
 fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(12, 6))
 
