@@ -5,6 +5,7 @@ import cv2
 from PIL import Image
 
 
+
 ruta_del_resultado = "Practicas/Practica_03/Punto_01/resultado_microscopio.npy"
 I_final_camara = np.load(ruta_del_resultado)
 
@@ -224,3 +225,78 @@ C_G9E1 = analizar_contraste_region(I_final_camara, x_vec, y_vec,
                                    x_centro_g9, y_centro_g9,
                                    ancho_g9, alto_g9,
                                    nombre_elemento="Grupo 9, Elemento 1")
+
+
+# ===================================================================
+#                  Análisis Cuantitativo de la PSF
+# ===================================================================
+
+# I_final_camara ya fue calculada por tu simulación
+# L_camara_salida y mesh_camara también
+
+# 1. Extraer el perfil de la PSF
+print("\n--- Análisis de Resolución por PSF ---")
+try:
+    # Obtener el vector de coordenadas X (en mm) del plano de la cámara
+    # (Asumiendo que mesh_camara es (X_cam, Y_cam))
+    x_cam_vec = mesh_camara[0][0, :] 
+    
+    # Obtener el perfil central (fila del medio)
+    centro_y_idx = I_final_camara.shape[0] // 2
+    perfil_psf = I_final_camara[centro_y_idx, :]
+    
+    # Normalizar el perfil
+    perfil_psf = perfil_psf / np.max(perfil_psf)
+
+    # 2. Calcular el FWHM (Ancho a la Mitad del Máximo)
+    
+    # Encontrar todos los píxeles que están por encima del 50% (0.5)
+    indices_fwhm = np.where(perfil_psf >= 0.5)[0]
+    
+    if indices_fwhm.size > 0:
+        idx_inicio = indices_fwhm[0]
+        idx_fin = indices_fwhm[-1]
+        
+        # Ancho en píxeles
+        ancho_en_pixeles = idx_fin - idx_inicio
+        
+        # Convertir píxeles a mm
+        dx_camara = L_camara_salida[0] / I_final_camara.shape[1]
+        FWHM_medido_camara = ancho_en_pixeles * dx_camara
+        
+        # 3. Referir la medida al plano del OBJETO
+        # (Dividimos por la magnificación del sistema)
+        FWHM_medido_objeto = FWHM_medido_camara / Mx # Mx = 20
+        
+        print(f"  FWHM medido (en cámara):   {FWHM_medido_camara * 1000:.2f} µm")
+        print(f"  Magnificación (M):        {Mx:.1f}x")
+        print(f"  FWHM MEDIDO (en objeto):  {FWHM_medido_objeto * 1000:.2f} µm")
+
+        # 4. Calcular el FWHM Teórico
+        # Para un disco de Airy (la PSF teórica), FWHM = 0.51 * λ / NA
+        FWHM_teorico = (0.51 * lam) / NA
+        
+        print(f"  FWHM TEÓRICO (0.51*λ/NA): {FWHM_teorico * 1000:.2f} µm")
+
+        # 5. Calcular el Error
+        error_psf = np.abs((FWHM_teorico - FWHM_medido_objeto) / FWHM_teorico) * 100
+        print(f"\n  Error entre Medición y Teoría: {error_psf:.1f}%")
+
+        # 6. Graficar el perfil de la PSF
+        plt.figure()
+        plt.plot(x_cam_vec, perfil_psf)
+        plt.axhline(0.5, color='r', linestyle='--', label='50% (FWHM)')
+        plt.axvline(x_cam_vec[idx_inicio], color='g', linestyle='--')
+        plt.axvline(x_cam_vec[idx_fin], color='g', linestyle='--', label=f'FWHM = {FWHM_medido_camara*1000:.2f} µm')
+        plt.title("Perfil de la PSF Medida (en el plano de la cámara)")
+        plt.xlabel("Posición u (mm)")
+        plt.ylabel("Intensidad Normalizada")
+        plt.legend()
+        plt.show()
+
+    else:
+        print("  Error: No se pudo encontrar el FWHM. El perfil es demasiado estrecho.")
+
+except Exception as e:
+    print(f"Error durante el análisis de PSF: {e}")
+    print("Asegúrate de que 'mesh_camara' está definido correctamente.")
