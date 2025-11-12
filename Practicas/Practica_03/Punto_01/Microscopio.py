@@ -18,7 +18,7 @@ import numpy as np
 #                 Definimos el campo de Entrada S(x,y)
 # ===================================================================
 
-#Ejemplo
+#Imagen especifica
 campo_entrada_1, L_in = transmitancia_entrada('imagen') # S(ξ,η)
 
 
@@ -35,7 +35,7 @@ campo_entrada_1, L_in = transmitancia_entrada('imagen') # S(ξ,η)
 
 f_TL = 200              # Focal de la lente
 d = f_TL                # Propagacion de P(x,y) a TL
-lam = 533 * 1e-6        # Longitud de onda en mm
+lam = 533 * 1e-6        # Longitud de onda
 
 # Magnificacion =  f_TL / f_MO
 # f_MO = f_TL / Magnificacion
@@ -51,7 +51,6 @@ M_prop2 = matriz_propagacion(f_MO) # Propagacion hasta P(x,y)
 # Por ende separamos la propagación en un calculo de dos campos
 # Primero calculamos el cmapo hasta la pupila y calculamos el campo de salida 
 # y ahi si propagamso ese cmapo de slaida hasta el de slaida final completo
-
 
 Campo_1 = [M_prop2, Lente_MO, M_prop1]
 M_1 = matriz_del_sistema(Campo_1)
@@ -80,25 +79,11 @@ RPu = f_MO * NA          # Cálculo del radio (en mm) de la pupila P(x,y):
                            # 2. Trazado de rayos: y_pupila = f_MO * θ_rayo
                            # 3. RPu (radio máx) = f_MO * θ_max = f_MO * NA
 
-Le = .39
-Ln = .39
+Le = 0.39
+Ln = 0.39
 
-Ne = 1080
-Nn = 1080
-
-de = Le/Ne
-dn = Ln/Nn
-
-Eje_Horizontal = np.arange(-Ne/2,Ne/2)
-Eje_Vertical = np.arange(-Nn/2,Nn/2)
-
-e,n = Eje_Horizontal*de,Eje_Vertical*dn
-E,N = np.meshgrid(e,n)
-Sen = np.sin(200*E*np.pi/Le).astype(np.complex128)
-
-X,Y = plano_pupila(lam,Sen,f_MO, Le, Ln)
+X,Y = plano_pupila(lam,campo_entrada_1,f_MO, Le, Ln)
 P = (X**2+Y**2<=RPu**2)
-
 
 campo_prop_1_ = campo_prop_1 * P
 
@@ -154,18 +139,23 @@ I_final_log = np.log(I_final_camara_ + 1e-10) # Usamos log(I) para ver los anill
 #---------Guardar informaaicon para el otro punto---------
 np.save("Practicas/Practica_03/Punto_01/resultado_microscopio.npy", I_final_camara)
 
-fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(12, 6))
+fig = plt.figure(figsize=(10, 9)) 
+gs = fig.add_gridspec(2, 3)
 
-# --- Gráfico 1: Campo de Entrada ---
+ax1 = fig.add_subplot(gs[0, 0])  # Fila 0, Columna 0
+ax2 = fig.add_subplot(gs[0, 1])  # Fila 0, Columna 1
+ax4 = fig.add_subplot(gs[0, 2])  # Fila 0, Columna 1
+ax3 = fig.add_subplot(gs[1, :])   # Fila 1, y usa TODAS las columnas (:)
+
+# --- Gráfico 1: Campo de Entrada (en ax1) ---
 ax1.imshow(I_entrada, 
            extent=[-L_in[0]/2, L_in[0]/2, -L_in[1]/2, L_in[1]/2], 
            cmap='gray')
-ax1.set_title("1. Campo de Entrada $S(x,y)$")
+ax1.set_title("1. Campo de Entrada $S(ξ,η)$")
 ax1.set_xlabel("ξ (mm)")
 ax1.set_ylabel("η (mm)")
 
-# --- Gráfico 2: Campo Propagado 1 (En la Pupila) ---
-# (Usamos log(I) para ver mejor los patrones de difracción)
+# --- Gráfico 2: Campo Propagado 1 (En la Pupila) (en ax2) ---
 ax2.imshow(np.log(I_pupila_filtrada + 1e-10), 
            extent=[-L_out[0]/2, L_out[0]/2, -L_out[1]/2, L_out[1]/2], 
            cmap='afmhot')
@@ -173,37 +163,22 @@ ax2.set_title(f"2. Campo en Pupila $P(x,y)$ (Radio={RPu:.2f} mm)")
 ax2.set_xlabel("x (mm)")
 ax2.set_ylabel("y (mm)")
 
-# --- Gráfico 3: Campo Propagado 2 (En la Cámara) ---
+# --- Gráfico 3: Campo Propagado 2 (En la Cámara) (en ax3) ---
 ax3.imshow(I_final_camara, 
            extent=[-L_camara_salida[0]/2, L_camara_salida[0]/2, -L_camara_salida[1]/2, L_camara_salida[1]/2], 
            cmap='gray')
-ax3.set_title("3. Campo Final en Cámara (Imagen)")
+ax3.set_title("3. Campo Final en Cámara $O(u,v)$")
 ax3.set_xlabel("u (mm)")
 ax3.set_ylabel("v (mm)")
 
-# --- Gráfico 4: Campo Propagado 2 (En la Cámara con el patron de difracción) ---
-ax4.imshow(I_final_log, 
-           extent=[-L_camara_salida[0]/2, L_camara_salida[0]/2, -L_camara_salida[1]/2, L_camara_salida[1]/2], 
-           cmap='afmhot') 
-ax4.set_title("3. Campo Final en Cámara (Imagen) $O(u,v)$")
-ax4.set_xlabel("u (mm)")
-ax4.set_ylabel("v (mm)")
+# --- Gráfico 2: Campo Propagado 1 (En la Pupila) (en ax2) ---
+ax4.imshow(P.astype(float), 
+           extent=[-Le/2, Ln/2, -Le/2, Ln/2], 
+           cmap='afmhot')
+ax4.set_title(f"2. Campo en Pupila $P(x,y)$ (Radio={RPu:.2f} mm)")
+ax4.set_xlabel("x (mm)")
+ax4.set_ylabel("y (mm)")
 
 
 plt.tight_layout()
 plt.show()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

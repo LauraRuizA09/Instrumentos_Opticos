@@ -71,7 +71,7 @@ def transmitancia_entrada(tipo_de_objeto):
  elif tipo_de_objeto == 'imagen':
 
     # Cargar una imagen en escala de grises y normalizarla
-    imagen = Image.open('Practicas/Practica_03/Punto_02/TEST_USAF.jpeg').convert('L')
+    imagen = Image.open('Practicas/Practica_03/Punto_01/Campo_inicial.bmp').convert('L')
     imagen = imagen.resize((Nx, Ny)) # Redimensionar la imagen al tamaño Nx x Ny
     U0 = np.array(imagen) / 255.0 # Normalizar a [0, 1]
     U0 = U0.astype(np.complex128) # Convertir a tipo complejo para incluir fase si es necesario
