@@ -41,7 +41,7 @@ print("-" * 30)
 
 # Límite 1: Resolución Óptica (Límite de Difracción de Abbe)
 # Es la máxima frecuencia espacial (lp/mm) que la óptica puede pasar.
-SF_optico = NA / lam
+SF_optico = 2 * NA / lam
 print(f"  Límite Óptico (Abbe):     {SF_optico:.2f} lp/mm")
 
 # Límite 2: Resolución del Detector (Límite de Nyquist)
@@ -186,117 +186,135 @@ L_simulacion = 10  # ¡¡REEMPLAZA ESTO!! con tu ancho real en mm
 x_vec = np.linspace(-L_simulacion / 2, L_simulacion / 2, N_puntos)
 y_vec = np.linspace(-L_simulacion / 2, L_simulacion / 2, N_puntos)
 
-# Habilitar modo interactivo de Matplotlib
-# %matplotlib qt  # (Si estás en un notebook/iPython)
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.interpolate import RegularGridInterpolator
+
+# --- 1. FUNCIONES AUXILIARES (Necesarias para el análisis) ---
+
+def calcular_contraste(I_max, I_min):
+    """Calcula el Contraste de Michelson."""
+    if I_max + I_min == 0: 
+        return 0.0
+    return (I_max - I_min) / (I_max + I_min)
+
+def extraer_perfil(I_imagen_final, x_vec, y_vec, p1_mm, p2_mm, num_puntos=100):
+    """
+    Extrae un perfil de intensidad de una imagen 2D a lo largo de una línea.
+    
+    Argumentos:
+    I_imagen_final : El array 2D de tu imagen resultado.
+    x_vec          : El vector de coordenadas X (en mm) (eje 1 de I_imagen_final).
+    y_vec          : El vector de coordenadas Y (en mm) (eje 0 de I_imagen_final).
+    p1_mm          : Tupla (x, y) de inicio del perfil (en mm).
+    p2_mm          : Tupla (x, y) de fin del perfil (en mm).
+    """
+    
+    # Crear la función de interpolación.
+    # Asume que 'y_vec' corresponde al eje 0 y 'x_vec' al eje 1
+    try:
+        # Nota: Los ejes para RegularGridInterpolator deben estar en orden (y, x)
+        interpolador = RegularGridInterpolator((y_vec, x_vec), I_imagen_final)
+    except ValueError as e:
+        print(f"Error al crear interpolador: {e}")
+        print(f"Asegúrate que I_final ({I_imagen_final.shape}) coincide con y_vec ({y_vec.size}) y x_vec ({x_vec.size}).")
+        return None, None
+    except Exception as e:
+        print(f"Error inesperado en RegularGridInterpolator: {e}")
+        return None, None
+
+    # Crear los puntos (x, y) a lo largo de la línea
+    x_perfil = np.linspace(p1_mm[0], p2_mm[0], num_puntos)
+    y_perfil = np.linspace(p1_mm[1], p2_mm[1], num_puntos)
+    
+    # Crear el eje de distancia para la gráfica
+    distancia_total = np.sqrt((p2_mm[0] - p1_mm[0])**2 + (p2_mm[1] - p1_mm[1])**2)
+    eje_distancia = np.linspace(0, distancia_total, num_puntos)
+    
+    # Muestrear los puntos. El interpolador espera (y, x).
+    puntos_a_muestrear = np.vstack((y_perfil, x_perfil)).T
+    
+    try:
+        perfil = interpolador(puntos_a_muestrear)
+        return eje_distancia, perfil
+    except Exception as e:
+        print(f"Error al interpolar puntos (¿puntos fuera de rango?): {e}")
+        return None, None
+
+# --- 2. CARGA DE DATOS Y DEFINICIÓN DE COORDENADAS ---
+print("Cargando datos...")
+try:
+    ruta_del_resultado = "Practicas/Practica_03/Punto_01/resultado_microscopio.npy"
+    I_final_camara = np.load(ruta_del_resultado) 
+except FileNotFoundError:
+    print(f"ERROR: No se encontró el archivo en {ruta_del_resultado}")
+    I_final_camara = np.random.rand(100,100) # Placeholder para evitar crash
+    print("Usando datos aleatorios. ¡Revisa la ruta del archivo .npy!")
+
+# Usamos Lx=1.0, como confirmaste
+N_puntos = I_final_camara.shape[0]
+L_simulacion = 1.0  
+
+x_vec = np.linspace(-L_simulacion / 2, L_simulacion / 2, N_puntos)
+y_vec = np.linspace(-L_simulacion / 2, L_simulacion / 2, N_puntos)
+print(f"Datos cargados. Tamaño: {I_final_camara.shape}, L={L_simulacion} mm")
+
+
+# --- 3. VISUALIZACIÓN INTERACTIVA (Tu Tarea) ---
+print("\n--- TAREA MANUAL ---")
+print("Se abrirá la imagen. Haz zoom para encontrar G9-E6 y G10-E1.")
+print("Encuentra los puntos p1 y p2 (en mm) para una LÍNEA CORTA y PERPENDICULAR a las barras.")
+print("Cierra la ventana y edita las variables en el Paso 4.")
+
 plt.figure(figsize=(10, 8))
 plt.pcolormesh(x_vec, y_vec, I_final_camara, cmap='gray', shading='auto')
 plt.xlabel('x (mm)')
 plt.ylabel('y (mm)')
-plt.title('Imagen Resultado - Haz Zoom para encontrar G8 y G9')
+plt.title('Imagen Resultado - Busca G9-E6 y G10-E1')
 plt.axis('equal')
 plt.colorbar()
 plt.show()
-   
-# --- Carga tus datos ---
-# I_imagen_final = np.load(...)
-# x_vec = ...
-# y_vec = ...
 
-# --- ANÁLISIS G8, E6 (Resuelto) ---
-# (Reemplaza estos valores con tu medición del gráfico)
-x_centro_g8 = -0.04   # (mm) - EJEMPLO
-y_centro_g8 = -0.15   # (mm) - EJEMPLO
-ancho_g8    = 0.005 # (mm) - EJEMPLO
-alto_g8     = 0.015 # (mm) - EJEMPLO (para barras verticales)
+# --- 4. ANÁLISIS DE CONTRASTE (Método de Línea) ---
 
-C_G8E6 = analizar_contraste_region(I_final_camara, x_vec, y_vec,
-                                   x_centro_g8, y_centro_g8,
-                                   ancho_g8, alto_g8,
-                                   nombre_elemento="Grupo 8, Elemento 6")
+# --- ANÁLISIS G9, E6 (912.2 lp/mm) ---
+# (¡REEMPLAZA ESTOS VALORES!)
+p1_G9E6 = (0.104, -0.535)  # (x_inicio, y_inicio) en mm
+p2_G9E6 = (0.180, -0.694) # (x_fin, y_fin) en mm
 
-# --- ANÁLISIS G9, E1 (No resuelto) ---
-# (Reemplaza estos valores con tu medición del gráfico)
-x_centro_g9 = -0.02   # (mm) - EJEMPLO
-y_centro_g9 = -0.13   # (mm) - EJEMPLO
-ancho_g9    = 0.004 # (mm) - EJEMPLO
-alto_g9     = 0.012 # (mm) - EJEMPLO
+dist_G9E6, perfil_G9E6 = extraer_perfil(I_final_camara, x_vec, y_vec, 
+                                        p1_G9E6, p2_G9E6, num_puntos=100)
 
-C_G9E1 = analizar_contraste_region(I_final_camara, x_vec, y_vec,
-                                   x_centro_g9, y_centro_g9,
-                                   ancho_g9, alto_g9,
-                                   nombre_elemento="Grupo 9, Elemento 1")
-
-
-# ===================================================================
-#                  Análisis Cuantitativo de la PSF
-# ===================================================================
-
-# I_final_camara ya fue calculada por tu simulación
-# L_camara_salida y mesh_camara también
-
-# 1. Extraer el perfil de la PSF
-print("\n--- Análisis de Resolución por PSF ---")
-try:
-    # Obtener el vector de coordenadas X (en mm) del plano de la cámara
-    # (Asumiendo que mesh_camara es (X_cam, Y_cam))
-    x_cam_vec = mesh_camara[0][0, :] 
+if perfil_G9E6 is not None:
+    I_max = np.max(perfil_G9E6)
+    I_min = np.min(perfil_G9E6)
+    C_G9E6 = calcular_contraste(I_max, I_min)
     
-    # Obtener el perfil central (fila del medio)
-    centro_y_idx = I_final_camara.shape[0] // 2
-    perfil_psf = I_final_camara[centro_y_idx, :]
+    print(f"\n--- Resultados del Análisis (G9, E6) ---")
+    print(f"  Frecuencia (G9, E6): 912.2 lp/mm")
+    print(f"  I_max medida: {I_max:.4f}")
+    print(f"  I_min medida: {I_min:.4f}")
+    print(f"  CONTRASTE MEDIDO (C): {C_G9E6:.4f}")
+else:
+    print("Error al extraer el perfil para G9-E6. Revisa tus coordenadas p1/p2.")
+
+# --- ANÁLISIS G10, E1 (1024 lp/mm) ---
+# (¡REEMPLAZA ESTOS VALORES!)
+p1_G10E1 = (-1.051, -0.474)  # (x_inicio, y_inicio) en mm
+p2_G10E1 = (-1.011, -0.586) # (x_fin, y_fin) en mm
+
+dist_G10E1, perfil_G10E1 = extraer_perfil(I_final_camara, x_vec, y_vec, 
+                                          p1_G10E1, p2_G10E1, num_puntos=100)
+
+if perfil_G10E1 is not None:
+    I_max = np.max(perfil_G10E1)
+    I_min = np.min(perfil_G10E1)
+    C_G10E1 = calcular_contraste(I_max, I_min)
     
-    # Normalizar el perfil
-    perfil_psf = perfil_psf / np.max(perfil_psf)
-
-    # 2. Calcular el FWHM (Ancho a la Mitad del Máximo)
-    
-    # Encontrar todos los píxeles que están por encima del 50% (0.5)
-    indices_fwhm = np.where(perfil_psf >= 0.5)[0]
-    
-    if indices_fwhm.size > 0:
-        idx_inicio = indices_fwhm[0]
-        idx_fin = indices_fwhm[-1]
-        
-        # Ancho en píxeles
-        ancho_en_pixeles = idx_fin - idx_inicio
-        
-        # Convertir píxeles a mm
-        dx_camara = L_camara_salida[0] / I_final_camara.shape[1]
-        FWHM_medido_camara = ancho_en_pixeles * dx_camara
-        
-        # 3. Referir la medida al plano del OBJETO
-        # (Dividimos por la magnificación del sistema)
-        FWHM_medido_objeto = FWHM_medido_camara / Mx # Mx = 20
-        
-        print(f"  FWHM medido (en cámara):   {FWHM_medido_camara * 1000:.2f} µm")
-        print(f"  Magnificación (M):        {Mx:.1f}x")
-        print(f"  FWHM MEDIDO (en objeto):  {FWHM_medido_objeto * 1000:.2f} µm")
-
-        # 4. Calcular el FWHM Teórico
-        # Para un disco de Airy (la PSF teórica), FWHM = 0.51 * λ / NA
-        FWHM_teorico = (0.51 * lam) / NA
-        
-        print(f"  FWHM TEÓRICO (0.51*λ/NA): {FWHM_teorico * 1000:.2f} µm")
-
-        # 5. Calcular el Error
-        error_psf = np.abs((FWHM_teorico - FWHM_medido_objeto) / FWHM_teorico) * 100
-        print(f"\n  Error entre Medición y Teoría: {error_psf:.1f}%")
-
-        # 6. Graficar el perfil de la PSF
-        plt.figure()
-        plt.plot(x_cam_vec, perfil_psf)
-        plt.axhline(0.5, color='r', linestyle='--', label='50% (FWHM)')
-        plt.axvline(x_cam_vec[idx_inicio], color='g', linestyle='--')
-        plt.axvline(x_cam_vec[idx_fin], color='g', linestyle='--', label=f'FWHM = {FWHM_medido_camara*1000:.2f} µm')
-        plt.title("Perfil de la PSF Medida (en el plano de la cámara)")
-        plt.xlabel("Posición u (mm)")
-        plt.ylabel("Intensidad Normalizada")
-        plt.legend()
-        plt.show()
-
-    else:
-        print("  Error: No se pudo encontrar el FWHM. El perfil es demasiado estrecho.")
-
-except Exception as e:
-    print(f"Error durante el análisis de PSF: {e}")
-    print("Asegúrate de que 'mesh_camara' está definido correctamente.")
+    print(f"\n--- Resultados del Análisis (G10, E1) ---")
+    print(f"  Frecuencia (G10, E1): 1024 lp/mm")
+    print(f"  I_max medida: {I_max:.4f}")
+    print(f"  I_min medida: {I_min:.4f}")
+    print(f"  CONTRASTE MEDIDO (C): {C_G10E1:.4f}")
+else:
+    print("Error al extraer el perfil para G10-E1. Revisa tus coordenadas p1/p2.")
