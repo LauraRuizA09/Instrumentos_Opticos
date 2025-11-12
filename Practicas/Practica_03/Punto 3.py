@@ -9,6 +9,7 @@ F_MO=F_TL/M  #mm
 Le=0.390 #mm
 Ln=0.390 #mm
 #----------------------Definición del objeto----------------------
+
 Sen=np.flipud(np.loadtxt(r"Practicas\Practica_03\MuestrasBio\MuestraBio_E05.csv",delimiter=",",dtype=complex))
 #----------------------Definición de la pupila--------------------
 X,Y=plano_pupila(lamda,Sen, F_MO, Le, Ln)
