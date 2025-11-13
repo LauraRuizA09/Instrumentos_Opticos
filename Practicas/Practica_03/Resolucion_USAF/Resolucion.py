@@ -23,7 +23,7 @@ e,n=Eje_Horizontal*de,Eje_Vertical*dn
 E,N=np.meshgrid(e,n) # Rejilla de coordenadas para definir un objeto de manera analítica
 
 #Apartado para cargar un objeto a partir de una imagen blanco y negro
-ruta_imagen = r"Practicas/Practica_03/Punto_02/Imagenes Test USAF/2.bmp" # Reemplaza con tu ruta
+ruta_imagen = r"Practicas/Practica_03/Punto_02/Imagenes Test USAF/USAF.png" # Reemplaza con tu ruta
 img = Image.open(ruta_imagen).convert('L')
 img_array = np.array(img) / 255.0
 Sen = np.flipud(img_array).astype(complex)
