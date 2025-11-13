@@ -49,32 +49,6 @@ print(f"  f_MO (calculada):       {f_MO:.2f} mm")
 print(f"  f_TL (dada):          {f_TL:.2f} mm")
 print("-" * 30)
 
-# --- 2. CÁLCULO DE LÍMITES TEÓRICOS (en lp/mm) ---
-
-# Límite 1: Resolución Óptica (Límite de Difracción de Abbe)
-# Es la máxima frecuencia espacial (lp/mm) que la óptica puede pasar.
-SF_optico = 2 * NA / lam
-print(f"  Límite Óptico (Abbe):     {SF_optico:.2f} lp/mm")
-
-# Límite 2: Resolución del Detector (Límite de Nyquist)
-# Es la máxima frecuencia que la cámara puede "ver", referida al plano del objeto.
-SF_camara_objeto = M / (2 * p_s)
-print(f"  Límite Detector (Nyquist): {SF_camara_objeto:.2f} lp/mm")
-
-print("-" * 30)
-
-# --- 3. LÍMITE TEÓRICO TOTAL DEL SISTEMA ---
-# El sistema estará limitado por el valor MÁS BAJO de los dos.
-SF_teorica_total = min(SF_optico, SF_camara_objeto)
-
-if SF_optico < SF_camara_objeto:
-    print(f"  Sistema LIMITADO POR DIFRACCIÓN (la óptica es el límite).")
-else:
-    print(f"  Sistema LIMITADO POR DETECTOR (los píxeles son el límite).")
-
-print(f"\n  RESOLUCIÓN TEÓRICA TOTAL: {SF_teorica_total:.2f} lp/mm")
-
-
 # --- Fórmula USAF (la usaremos mucho) ---
 def get_sf_usaf(G, E):
     """
@@ -82,7 +56,6 @@ def get_sf_usaf(G, E):
     de la mira USAF 1951.
     """
     return 2**(G + (E - 1) / 6.0)
-
 
 
 
@@ -162,15 +135,13 @@ print("--- MODO: BARRAS HORIZONTALES FIJO ---")
 
 # --- LAURA: DEFINE AQUÍ TUS IMÁGENES Y SU NÚMERO DE ELEMENTO ---
 imagenes_y_elementos = [
-("Practicas/Practica_03/Punto_02/LImites Resolucion (Cualit.)/G1E2.png", 2),
-("Practicas/Practica_03/Punto_02/LImites Resolucion (Cualit.)/G1E3.png", 3),
-("Practicas/Practica_03/Punto_02/LImites Resolucion (Cualit.)/G1E4.png", 4),
-("Practicas/Practica_03/Punto_02/LImites Resolucion (Cualit.)/G1E5.png", 5),
-("Practicas/Practica_03/Punto_02/LImites Resolucion (Cualit.)/G1E6.png", 6)
+("Practicas/Practica_03/Punto_02/LImites Resolucion (Cualit.)/G0E4.png", 4),
+("Practicas/Practica_03/Punto_02/LImites Resolucion (Cualit.)/G0E5.png", 5),
+("Practicas/Practica_03/Punto_02/LImites Resolucion (Cualit.)/G0E6.png", 6),
 ]
 # -----------------------------------------------------------------
 
-group_num = 1 # Fijo para este ejemplo
+group_num = 0 # Fijo para este ejemplo
 
 resultados_finales = [] 
 umbral_rayleigh = 0.735 # 73.5%
@@ -218,25 +189,3 @@ for filename, element_num in imagenes_y_elementos:
     
     print("  Mostrando gráfico de perfil... Cierra la ventana para continuar.")
     plt.show() 
-
-# --- PARTE 4: REPORTE FINAL ---
-if resultados_finales:
-    resultados_finales.sort(key=lambda item: item[1]) # Ordenar por frecuencia
-    
-    print("\n" + "="*70)
-    print(f"--- REPORTE DE RESOLUCIÓN (Criterio Doble, G={group_num}) ---")
-    print("  Freq (lp/mm) | Elem | Ratio Rayleigh | Uniform. Picos | Veredicto")
-    print("  ----------------------------------------------------------------------")
-    
-    for (elem, freq, ratio_r, ratio_u) in resultados_finales:
-        # Veredicto basado en AMBOS criterios
-        if ratio_r <= umbral_rayleigh and ratio_u <= umbral_uniformidad:
-            veredicto = "RESUELTO"
-        else:
-            veredicto = "NO RESUELTO"
-            
-        print(f"     {freq:7.3f}   |  {elem}   |    {ratio_r:8.4f}    |     {ratio_u:8.4f}   | {veredicto}")
-    
-    print("="*70)
-else:
-    print("\nNo se pudo analizar ninguna imagen.")
