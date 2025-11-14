@@ -1,191 +1,124 @@
+# ===================================================================
+#                     Test USAF 1951 T20-CPG
+# ===================================================================
+
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.signal import find_peaks
-import cv2
-from PIL import Image
-from scipy.ndimage import gaussian_filter1d
+from Funciones import calcular_resolucion_usaf
+from Funciones import graficar_perfil_horizontal
+import matplotlib.image as mpimg
+
+
+# ===================================================================
+#       Cargamos la imagen resultante de nuetsro sistema optico
+# ===================================================================
 
 ruta_del_resultado = "Practicas/Practica_03/Punto_01/resultado_microscopio.npy"
 I_final_camara = np.load(ruta_del_resultado)
 
-# --- Líneas para graficar ---
-
-# 1. Crea una figura
 plt.figure(figsize=(8, 6))
-
-# 2. Muestra la imagen en escala de grises
 plt.imshow(I_final_camara, cmap='gray')
-
-# 3. Añade la barra de color (recomendado)
 plt.colorbar(label='Intensidad')
-
-# 4. Añade títulos
 plt.title("Imagen Resultante en la Cámara")
 plt.xlabel("Píxeles (x)")
 plt.ylabel("Píxeles (y)")
-
-# 5. Muestra el gráfico
+plt.savefig("Practicas/Practica_03/Punto_02/Resultados/Test USAF bajo el microscopio.png")
 plt.show()
 
+# ===================================================================
+#         Calculamos la resoluciones teoricas y experimentales
+# ===================================================================
 
-# ---  PARÁMETROS DEL SISTEMA ---
+# Viendo la imagen anteriro podemos decir que grupo y que elemento son nuestro 
+# limite de resolucion para asi calcular la resolucion del instrumento y compararla con la teorica
 
-# Parámetros Ópticos 
-f_TL = 200            # Longitud focal de la lente de tubo (mm)
-M = 20                 # Magnificación (ej: 20x)
-lam = 533e-6             # Longitud de onda de la luz (mm) [533 nm]
-NA = 0.25               # Apertura Numérica (NA) del objetivo (MO)
-f_MO = f_TL / M          # Longitud focal del objetivo (mm)
-
-# Parámetros del Detector (Cámara Alvium 1800 U-811m con Sony IMX546)
-p_s = 0.00274            # Tamaño del píxel (mm) [2.74 µm]
-
-print(f"--- Parámetros del Sistema ---")
-print(f"  Longitud de onda (λ):   {lam * 1e6:.1f} nm")
-print(f"  Magnificación (M):      {M:.1f}x")
-print(f"  Apertura Numérica (NA): {NA:.2f}")
-print(f"  Tamaño de píxel (p_s):  {p_s * 1e3:.2f} µm")
-print(f"  f_MO (calculada):       {f_MO:.2f} mm")
-print(f"  f_TL (dada):          {f_TL:.2f} mm")
-print("-" * 30)
-
-# --- Fórmula USAF (la usaremos mucho) ---
-def get_sf_usaf(G, E):
-    """
-    Calcula la frecuencia espacial (lp/mm) para un Grupo (G) y Elemento (E)
-    de la mira USAF 1951.
-    """
-    return 2**(G + (E - 1) / 6.0)
+calcular_resolucion_usaf()
 
 
+# ===================================================================
+#                Analisis de perfiles de intensidad
+# ===================================================================
 
-# --- PARTE 1: Función de Cálculo Teórico ---
-# (Sin cambios)
-def calcular_datos_usaf(group, element):
-    sf_lpmm = 2**(group + (element - 1) / 6.0)
-    return sf_lpmm
+# Aca calculamos los perfiles de inetensidad de las lineas horizontales de varios
+# elementos que estan en el limite de la resolucion para ais comparar y saber de 
+# manaera cuantitativa que elemnto y que grupo no se distingue bien y poder calcular
+# la resolcuion definitiva dle sistema
 
-# --- PARTE 2: Función de Análisis de Imagen (LÓGICA MEJORADA) ---
-
-def analizar_perfil_robusto(nombre_archivo_imagen):
-    """
-    Calcula el perfil, ratio y uniformidad de una imagen pre-recortada
-    ASUMIENDO QUE CONTIENE BARRAS HORIZONTALES.
-    """
-    img_color = cv2.imread(nombre_archivo_imagen)
-
-    imagen_gris = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)
-    h, w = imagen_gris.shape
-    
-    tipo_barras = "Horizontales (Asumido)"
-    perfil_crudo = np.mean(imagen_gris, axis=1) # Perfil vertical
-    
-    # 1. Suavizar el perfil
-    sigma_suavizado = 15
-    perfil_suave = gaussian_filter1d(perfil_crudo, sigma=sigma_suavizado)
-    
-    # 2. Encontrar picos y valles
-    rango_dinamico = np.percentile(perfil_suave, 95) - np.percentile(perfil_suave, 5)
-    prominencia_minima = max(rango_dinamico * 0.05, 3.0) 
-    distancia_minima_pixeles = h / 6.0 
-        
-    indices_picos, _ = find_peaks(perfil_suave, 
-                                  prominence=prominencia_minima, 
-                                  distance=distancia_minima_pixeles)
-    indices_valles, _ = find_peaks(-perfil_suave, 
-                                   prominence=prominencia_minima, 
-                                   distance=distancia_minima_pixeles)
-    
-    # 3. Calcular Métricas
-    # SI, Y SOLO SI, encontramos al menos 3 picos y 2 valles
-    if len(indices_picos) >= 3 and len(indices_valles) >= 2:
-        
-        intensidades_picos = perfil_suave[indices_picos]
-        intensidades_valles = perfil_suave[indices_valles]
-        
-        i_max_promedio = np.mean(intensidades_picos)
-        i_min_promedio = np.mean(intensidades_valles)
-        
-        # Calcular Ratio de Rayleigh
-        ratio_rayleigh = i_min_promedio / i_max_promedio if i_max_promedio > 0 else 1.0
-            
-        # Calcular Uniformidad de Picos (Tu criterio)
-        std_picos = np.std(intensidades_picos)
-        uniformidad_picos_ratio = std_picos / i_max_promedio if i_max_promedio > 0 else 1.0
-            
-        print(f"  Picos/Valles encontrados: {len(indices_picos)} picos, {len(indices_valles)} valles.")
-        print(f"  I_max_prom={i_max_promedio:.1f}, I_min_prom={i_min_promedio:.1f}")
-            
-    else:
-        # ¡No Resuelto! (El "parche gris")
-        print(f"  No se detectaron 3 picos y 2 valles (Encontrados: {len(indices_picos)} picos, {len(indices_valles)} valles).")
-        
-        # Forzamos los ratios para que fallen
-        ratio_rayleigh = 1.0
-        uniformidad_picos_ratio = 1.0
-        i_max_promedio = np.mean(perfil_suave)
-        i_min_promedio = i_max_promedio
-    
-    return perfil_crudo, perfil_suave, i_max_promedio, i_min_promedio, ratio_rayleigh, uniformidad_picos_ratio, indices_picos, indices_valles
-
-# --- PARTE 3: LÓGICA PRINCIPAL (Estilo "Script") ---
-
-print("--- Analizador de Resolución Robusto (Rayleigh + Uniformidad) ---")
-print("--- MODO: BARRAS HORIZONTALES FIJO ---")
-
-# --- LAURA: DEFINE AQUÍ TUS IMÁGENES Y SU NÚMERO DE ELEMENTO ---
 imagenes_y_elementos = [
-("Practicas/Practica_03/Punto_02/LImites Resolucion (Cualit.)/G0E4.png", 4),
-("Practicas/Practica_03/Punto_02/LImites Resolucion (Cualit.)/G0E5.png", 5),
-("Practicas/Practica_03/Punto_02/LImites Resolucion (Cualit.)/G0E6.png", 6),
+    ("Practicas/Practica_03/Punto_02/LImites Resolucion (Cualit.)/G0E4.png", 4,0),
+    ("Practicas/Practica_03/Punto_02/LImites Resolucion (Cualit.)/G0E5.png", 5,0),
+    ("Practicas/Practica_03/Punto_02/LImites Resolucion (Cualit.)/G0E6.png", 6,0),
+    ("Practicas/Practica_03/Punto_02/LImites Resolucion (Cualit.)/G1E1.png", 1,1),
+    ("Practicas/Practica_03/Punto_02/LImites Resolucion (Cualit.)/G1E2.png", 2,1),
+    ("Practicas/Practica_03/Punto_02/LImites Resolucion (Cualit.)/G1E3.png", 3,1),
+    ("Practicas/Practica_03/Punto_02/LImites Resolucion (Cualit.)/G1E4.png", 4,1),
+    ("Practicas/Practica_03/Punto_02/LImites Resolucion (Cualit.)/G1E5.png", 5,1),
+    ("Practicas/Practica_03/Punto_02/LImites Resolucion (Cualit.)/G1E6.png", 6,1)
 ]
-# -----------------------------------------------------------------
 
-group_num = 0 # Fijo para este ejemplo
 
-resultados_finales = [] 
-umbral_rayleigh = 0.735 # 73.5%
-umbral_uniformidad = 0.20 # 20% (Umbral para tu criterio. Ajusta si es necesario)
+# ===================================================================
+#                   Mostrar los resultados
+# ===================================================================
 
-# Iterar, analizar y MOSTRAR CADA GRÁFICO
-for filename, element_num in imagenes_y_elementos:
-    
-    print(f"\n--- Procesando: '{filename}' (Grupo {group_num}, Elemento {element_num}) ---")
-    
-    sf_lpmm = calcular_datos_usaf(group_num, element_num)
-    
-    resultado = analizar_perfil_robusto(filename)
-    if resultado[0] is None:
-        print("  Saltando esta imagen.")
-        continue 
-        
-    perfil_crudo, perfil_suave, i_max, i_min, ratio_r, ratio_u, idx_picos, idx_valles = resultado
-    
-    print(f"  Frecuencia Teórica: {sf_lpmm:.3f} lp/mm")
-    print(f"  Ratio Rayleigh (I_min/I_max): {ratio_r:.4f} (Límite: <= {umbral_rayleigh})")
-    print(f"  Ratio Uniformidad (Std/Mean): {ratio_u:.4f} (Límite: <= {umbral_uniformidad})")
-    
-    resultados_finales.append((element_num, sf_lpmm, ratio_r, ratio_u))
-    
-    # --- Graficar el perfil ---
-    plt.figure(figsize=(8, 6))
-    
-    plt.plot(perfil_crudo, range(len(perfil_crudo)), 'k-', alpha=0.3, label='Perfil Crudo')
-    plt.plot(perfil_suave, range(len(perfil_suave)), 'c-', lw=2, label='Perfil Suavizado')
-    plt.plot(perfil_suave[idx_picos], idx_picos, 'r^', markersize=8, label='Picos Detectados')
-    plt.plot(perfil_suave[idx_valles], idx_valles, 'bv', markersize=8, label='Valles Detectados')
+#Contamos cuántos gráficos vamos a hacer
+N = len(imagenes_y_elementos)
 
-    plt.xlabel("Intensidad Promediada (0-255)")
-    plt.ylabel("Posición Y (píxeles)")
+# Decidimos la forma de la rejilla (Grid)
+ncols = 3
+nrows = (N + ncols - 1) // ncols 
+
+fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(ncols * 8, nrows * 6))
+axes_flat = axes.flatten()
+
+fig.suptitle("Análisis de Perfiles Horizontales de Intensidad", fontsize=16)
+
+
+colores = [
+    ('k', 'c'),    # Colores para el Elemento 4 G0
+    ('k', 'm'),    # Colores para el Elemento 5 G0
+    ('k', 'y'),    # Colores para el Elemento 6 G0
+    ('k', 'b'),    # Colores para el Elemento 1 G1
+    ('k', 'r'),    # Colores para el Elemento 2 G1
+    ('k', 'g'),    # Colores para el Elemento 3 G1
+    ('k', 'm'),    # Colores para el Elemento 4 G1
+    ('k', 'c'),    # Colores para el Elemento 5 G1
+]
+
+# ===================================================================
+#                   Iterar y mostrar los resultados
+# ===================================================================
+
+for i, (filename, element_num, group) in enumerate(imagenes_y_elementos):
+
+    ax = axes_flat[i]
     
-    plt.axvline(i_max, color='r', linestyle='--', label=f'I_max_prom ~ {i_max:.1f}')
-    plt.axvline(i_min, color='b', linestyle='--', label=f'I_min_prom ~ {i_min:.1f}')
-    plt.axvline(i_max * umbral_rayleigh, color='g', linestyle=':', label=f'Umbral Rayleigh ({i_max * umbral_rayleigh:.1f})')
+    # Calculamos los perfiles
+    perfil_crudo, perfil_suave, sigma = graficar_perfil_horizontal(filename)
     
-    plt.title(f"Perfil: G={group_num}, E={element_num} (Ratio_R={ratio_r:.3f}, Ratio_U={ratio_u:.3f})")
-    plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
+    # El eje Y es la posición en píxeles, el eje X es la intensidad
+    eje_y = range(len(perfil_crudo))
     
-    print("  Mostrando gráfico de perfil... Cierra la ventana para continuar.")
-    plt.show() 
+    # Asignar colores según el índice
+    # Usamos % (módulo) para repetir colores si hay más elementos que colores definidos
+    color_crudo, color_suave = colores[i % len(colores)]
+    
+
+    #ax.plot(perfil_crudo, eje_y, color=color_crudo, alpha=0.3, label=f'Elemento {element_num} Grupo {group}') 
+    ax.plot(perfil_suave, eje_y, color=color_suave, lw=2, label=f'Elemento {element_num} Grupo {group}')
+    ax.set_xlabel("Intensidad Promediada")
+    ax.set_ylabel("Posición (píxeles)")
+    ax.legend() 
+    ax.grid(True)
+    ax.set_xlim(0, 120)
+
+# Ocultamos los ejes que no se usaron
+for j in range(i + 1, len(axes_flat)):
+    axes_flat[j].axis('off')
+
+# Ajustamos el espaciado 
+#fig.tight_layout(rect=[0, 0.03, 1, 0.95]) # 'rect' deja espacio para el suptitle
+
+# Guardamos el resultado para el informe
+plt.savefig("Practicas/Practica_03/Punto_02/Resultados/Perfiles de Intensidad Completos.png")
+plt.show()
