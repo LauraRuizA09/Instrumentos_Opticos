@@ -10,5 +10,9 @@ Este repositorio contiene prácticas y proyectos de la materia Instrumentos Opti
 - [Practica 1](Practicas/Practica_01/#Punto_01.py) → Difracción Escalar Discreta
 
 - [Practica 2](Practicas/Practica_02) → Procesamiento Óptico
+
+- [Practica 3](Practicas/Practica_03) → Microscopio Óptico
+
+
 ## 📂 Proyectos 📊
-- [Proyecto 1](Proyecto) → Por definir
+- [Proyecto 1](Proyecto) → Efecto Schlieren
