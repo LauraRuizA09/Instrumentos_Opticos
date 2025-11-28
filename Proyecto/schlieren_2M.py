@@ -1,8 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from Funciones import mapeo, generar_onda_sonora, calcular_gradientes, plot_simulacion
-from Funciones import simular_camino_completo, simular_corte_cuchilla, calcular_desviacion_angular
-
+from Funciones import simular_camino_completo, simular_corte_cuchilla, calcular_desviacion_angular, simular_z_type_dos_espejos
 
 # ===================================================================
 #            Generamos la onda de sonido
@@ -36,60 +35,49 @@ eps_x, eps_y = calcular_desviacion_angular(dndx, dndy, espesor_z=0.3)
 
 
 # ===================================================================
-#           Visualizacion de la onda y como cambia n
+#          Simulacion de la configuración Z-type
 # ===================================================================
 
-plot_simulacion(n_map, f"Campo de Índice de Refracción (n)\nFrecuencia: {frecuencia_generador_hz/1000:.1f} kHz", cmap='gray')
-
-plot_simulacion(dndx, "Gradiente Horizontal (dn/dx)\n(Base para Cuchilla Vertical)", cmap='gray')
-
-plot_simulacion(dndy, "Gradiente Vertical (dn/dy)\n(Base para Cuchilla Horizontal)", cmap='gray')
-
-
-# ===================================================================
-#           Interaccion onda y camino optico completo
-# ===================================================================
-
-focal = 1             # Espejo f=1m (R=2m)
-posicion_onda = 0.5   # La onda está a 0.5m del espejo (y a 1.5m de la cámara)
+focal_m2 = 1.5           # Espejo 2 de enfoque (f=1.5m)
+distancia_objeto = 1     # Objeto a 1 metro del espejo 2
 radio_focal = 0.0005  #sensibilidad de que tanto esta dispersada la luz 
 
-# Simulación de Camino Completo
-desp_x, desp_y, factor_S = simular_camino_completo(eps_x, eps_y, posicion_onda, focal)
+# Calculamos trayectoria
+desp_x_z, desp_y_z, factor_S_z = simular_z_type_dos_espejos(eps_x, eps_y, distancia_objeto, focal_m2)
 
-print(f"--- Resultado de la Simulación Óptica ---")
-print(f"Configuración: Objeto a {posicion_onda}m del espejo.")
-print(f"Factor de Sensibilidad calculado: {factor_S:2f} metros de desplazamiento por radián.")
-print(f"(Esto significa que si la onda desvía la luz 1 mrad, la mancha se mueve {factor_S} mm en la cuchilla)")
+print(f"Sensibilidad Z-Type: {factor_S_z:.4f} m/rad")
+print(f"En un sistema Z ideal, la sensibilidad debería ser igual a la focal ({focal_m2} m).")
 
-# Aplicar Cuchilla y Graficar
-img_final_trayectoria = simular_corte_cuchilla(desp_x, desp_y,"vertical", radio_focal)
-plot_simulacion(img_final_trayectoria, f"Schlieren Trayectoria Completa (Ida y Vuelta)\nObjeto a {posicion_onda}m del espejo", cmap='gray')
+# Generar imagen
+img_ztype = simular_corte_cuchilla(desp_x_z, desp_y_z, "horizontal", radio_focal)
+
+plot_simulacion(img_ztype, f"Schlieren Z-Type (Dos Espejos f={focal_m2}m)", cmap='inferno')
+
 
 # ===================================================================
 #                   Comparación cuchillas
 # ===================================================================
 
-img_horizontal = simular_corte_cuchilla(desp_x, desp_y, "horizontal", radio_focal)
-img_vertical   = simular_corte_cuchilla(desp_x, desp_y, "vertical", radio_focal)
-img_circular   = simular_corte_cuchilla(desp_x, desp_y, "circular", radio_focal)
+img_horizontal = simular_corte_cuchilla(desp_x_z, desp_y_z, "horizontal", radio_focal)
+img_vertical   = simular_corte_cuchilla(desp_x_z, desp_y_z, "vertical", radio_focal)
+img_circular   = simular_corte_cuchilla(desp_x_z, desp_y_z, "circular", radio_focal)
 
 # Creamos la figura
 fig, axes = plt.subplots(2, 3, figsize=(15, 10))
 plt.subplots_adjust(hspace=0.3, wspace=0.1)
 
 # [0,0] Horizontal (Gradientes en Y)
-axes[0, 0].imshow(img_horizontal, cmap='gray', extent=[-15,15,-15,15])
+axes[0, 0].imshow(img_horizontal, cmap='inferno', extent=[-15,15,-15,15])
 axes[0, 0].set_title("Cuchilla Horizontal")
 axes[0, 0].set_ylabel("Imagen Schlieren", fontsize=12, fontweight='bold')
 
 # [0,1] Vertical (Gradientes en X)
-axes[0, 1].imshow(img_vertical, cmap='gray', extent=[-15,15,-15,15])
+axes[0, 1].imshow(img_vertical, cmap='inferno', extent=[-15,15,-15,15])
 axes[0, 1].set_title("Cuchilla Vertical")
 
 # [0,2] Circular (Campo Oscuro)
 # Usamos 'inferno' para que resalte como en la imagen de referencia
-axes[0, 2].imshow(img_circular, cmap='gray', extent=[-15,15,-15,15])
+axes[0, 2].imshow(img_circular, cmap='inferno', extent=[-15,15,-15,15])
 axes[0, 2].set_title("Filtro Circular")
 
 
@@ -121,5 +109,5 @@ axes[1, 2].imshow(esquema_c, cmap='gray', vmin=0, vmax=1)
 axes[1, 2].set_title("Forma del Filtro")
 
 
-plt.suptitle("Comparación de Filtros (Knife) Schlieren ($1$ $Espejo$)", fontsize=16)
+plt.suptitle("Comparación de Filtros (Knife) Schlieren ($2$ $Espejos$ $Z-type$)", fontsize=16)
 plt.show()

@@ -107,13 +107,17 @@ def matriz_reflexion_curvas(R):
 
  return Re_curve 
 
+# ===================================================================
+#                 Configuración de un solo espejo 
+# ===================================================================
+
 def simular_camino_completo(eps_x, eps_y, distancia_espejo_onda, focal_espejo):
 
     # Recorrido: Fuente de luz -> Onda sonido -> Espejo -> Onda de sonido -> Cuchilla -> Sensor
     
     R_espejo = 2 * focal_espejo  # Radio de curvatura
     
-    # En configuración coincidente (Z-type), la fuente y cámara están en el centro de curvatura (2f)
+    # En configuración coincidente, la fuente y cámara están en el centro de curvatura (2f)
     distancia_total = R_espejo 
     
     # Distancias parciales
@@ -124,9 +128,9 @@ def simular_camino_completo(eps_x, eps_y, distancia_espejo_onda, focal_espejo):
     M_viaje_corto = matriz_propagacion(d2_onda_a_espejo) # Tramo Onda-Espejo
     M_espejo      = matriz_reflexion_curvas(R_espejo)    
     
-    # 3. CÁLCULO DE SENSIBILIDAD (Trazado de un "Rayo Unitario")
+    # CÁLCULO DE SENSIBILIDAD (Trazado de un "Rayo Unitario")
     # Para no multiplicar matrices gigantes de 800x800 píxeles, calculamos qué le pasa
-    # a un rayo "test" con desviación = 1 radian, y luego aplicamos ese factor a tu imagen.
+    # a un rayo "test" con desviación = 1 radian, y luego aplicamos ese factor a la imagen
     
     # Estado Inicial del Rayo (Desviación relativa = 0)
     # Vector: [Altura (y), Angulo (theta)]
@@ -171,33 +175,31 @@ def simular_camino_completo(eps_x, eps_y, distancia_espejo_onda, focal_espejo):
     
     return desplazamiento_x_final, desplazamiento_y_final, sensibilidad_total
 
+# ===================================================================
+#                 Creación de la cuchilla
+# ===================================================================
 
-def simular_corte_cuchilla(desp_x, desp_y, tipo="circular", radio_focal_mm=0.5):
-
-    # Convertir radio del foco a metros
-    radio_focal_m = radio_focal_mm / 1000.0
+def simular_corte_cuchilla(desp_x, desp_y, tipo, radio_focal_m):
     
     # Intensidad base (Fondo)
-    # Si es circular (campo oscuro), el fondo es negro (0.0).
-    # Si es cuchilla recta, el fondo es gris (0.5).
-    if tipo == "circular":
-        I_base = 0.0
-    else:
-        I_base = 0.5
+    # Si es circular (campo oscuro), el fondo es negro
+    # Si es cuchilla recta, el fondo es gris
+    
+    I_base = 0.5
         
     if tipo == "vertical":
-        # Cuchilla Vertical
+
         # Normalizamos el desplazamiento respecto al tamaño del foco
         cambio_luz = (desp_x / radio_focal_m)
         imagen = I_base + cambio_luz
         
     elif tipo == "horizontal":
-        # Cuchilla Horizontal
+
         cambio_luz = (desp_y / radio_focal_m)
         imagen = I_base + cambio_luz
         
     elif tipo == "circular":
-        # Filtro Circular (Campo Oscuro)
+        I_base = 0.0
         # Calculamos la magnitud total del desplazamiento (radio)
         magnitud_desp = np.sqrt(desp_x**2 + desp_y**2)
         
@@ -205,93 +207,123 @@ def simular_corte_cuchilla(desp_x, desp_y, tipo="circular", radio_focal_mm=0.5):
         imagen = (magnitud_desp / radio_focal_m)
         
     else:
-        # Por defecto devuelve negro si el tipo está mal escrito
+        # Por defecto devuelve negro
         return np.zeros_like(desp_x)
 
-    # Limitar valores físicos (Clip entre 0 y 1 para que sea una imagen válida)
+    # Limitar valores físicos
     return np.clip(imagen, 0, 1)
 
+# ===================================================================
+#              Configuración de dos espejos (Z-type)
+# ===================================================================
 
+def simular_z_type_dos_espejos(eps_x, eps_y, distancia_onda_espejo2, focal_espejo2):
+    
+    # Simula el recorrido Z-Type: Onda -> Espejo 2 (Enfoque) -> Cuchilla
 
+    R_espejo2 = 2 * focal_espejo2
+    
+    # La cuchilla se coloca en el foco del Espejo 2
+    distancia_espejo2_cuchilla = focal_espejo2
+    
+    # Tramo A: Desde la Onda hasta el Espejo 2
+    M_viaje_onda_espejo = matriz_propagacion(distancia_onda_espejo2)
+    
+    # Tramo B: Reflexión en Espejo 2
+    M_reflexion2 = matriz_reflexion_curvas(R_espejo2)
+    
+    # Tramo C: Desde Espejo 2 hasta Cuchilla (Distancia focal)
+    M_viaje_espejo_cuchilla = matriz_propagacion(distancia_espejo2_cuchilla)
+    
+    # 3. CÁLCULO DE SENSIBILIDAD (Trazado de Rayo Unitario)
+    # Rayo Test inicial en la Onda: [y=0, theta=0]
+    rayo_test = np.array([0.0, 0.0])
+    
+    # --- INICIO DEL VIAJE ---
 
+    # El rayo cruza la onda UNA sola vez
+    rayo_test[1] += 1.0  # Sumamos 1 radian de desviación
+    
+    # Onda -> Espejo 2
+    rayo_test = M_viaje_onda_espejo @ rayo_test
+    
+    # Reflexión en Espejo 2 
+    rayo_test = M_reflexion2 @ rayo_test
+    
+    # Espejo 2 -> Cuchilla
+    rayo_test = M_viaje_espejo_cuchilla @ rayo_test
+    
+    # --- FIN DEL VIAJE ---
+    
+    # El valor final rayo_test[0] es la altura (y) en la cuchilla.
+    sensibilidad_total = rayo_test[0]
+    
+    desp_x = sensibilidad_total * eps_x
+    desp_y = sensibilidad_total * eps_y
+    
+    return desp_x, desp_y, sensibilidad_total
 
+# ===================================================================
+#       Generar una simulaaciond de una columna de calor
+# ===================================================================
 
+def generar_ruido_fractal(X, Y, escala=10.0, complejidad=3):
 
+    ruido = np.zeros_like(X)
+    
+    # Sumamos capas de "ruido" (Octavas)
+    for i in range(1, complejidad + 1):
+        frecuencia = 2**i  # Cada capa es más detallada
+        amplitud = 1 / frecuencia
+        # Desfases aleatorios fijos para que no parezca un patrón repetido
+        fase_x = np.sin(i * 132.1) * 10 
+        fase_y = np.cos(i * 54.3) * 10
+        
+        # El ruido se mueve principalmente en Y (el calor sube)
+        ruido += amplitud * np.sin(X * escala * frecuencia + fase_x) * \
+                            np.sin(Y * escala * frecuencia * 0.5 + fase_y)
+                            
+    return ruido
 
-def generar_pluma_termica(X, Y, intensidad_dn=0.0003, ancho=0.02, turbulencia=0.5):
-
-    # Genera un mapa de índice de refracción simulando el aire caliente subiendo de un fósforo.
+def generar_columna_calor(X, Y, temperatura_max_delta, ancho_columna_m):
     
-    # Definir la trayectoria de la columna (serpenteo)
-    # Usamos seno para simular que el humo se mueve de lado a lado al subir
-    # Y va de negativo (abajo) a positivo (arriba).
+    #Simula el índice de refracción de una columna de aire caliente (Vela/Soldador).
     
-    # Frecuencia espacial del serpenteo
-    k = 150
+    #  Constantes físicas
+    T_ambiente = 293.15 # Kelvin (20°C)
+    n0_aire = 1.00029   # Indice base
     
-    # El centro de la columna se desplaza en X según la altura Y
-    x_centro = (turbulencia * 0.01) * np.sin(k * Y) * np.exp(Y*2) # Se mueve más arriba
+    # Geometría
+    # El calor sube, así que depende de Y
+    # Queremos que la columna sea ancha abajo y se disperse arriba
     
-    # Perfil de Temperatura (Gaussiano invertido)
-    # El aire es más caliente en el centro (x_centro) y se enfría hacia afuera.
-    # Usamos una función Gaussiana: exp(-x^2)
-    distancia_al_centro = X - x_centro
-    perfil_calor = np.exp(- (distancia_al_centro**2) / (2 * ancho**2))
+    # Centro de la columna (con turbulencia añadida)
+    # El 'ruido' hace que el centro oscile izquierda/derecha a medida que sube
+    turbulencia = generar_ruido_fractal(X, Y, escala=20, complejidad=4)
     
-    # Disipación (El calor se disipa al subir)
-    # Hacemos que la intensidad baje a medida que Y aumenta (se enfría arriba)
-    # Normalizamos Y para que vaya de 0 a 1 aprox para la disipación
-    y_norm = (Y - np.min(Y)) / (np.max(Y) - np.min(Y))
-    disipacion = 1.0 - (0.7 * y_norm) # Se mantiene al 30% arriba
+    # La turbulencia afecta más arriba (Y alto) que abajo (Y bajo)
+    # Normalizamos Y para que vaya de 0 (abajo) a 1 (arriba)
+    y_norm = (Y - Y.min()) / (Y.max() - Y.min())
+    desvio_centro = turbulencia * 0.02 * y_norm # 2cm de oscilación máxima arriba
     
-    # Calcular el índice n
-    # n_base es aprox 1.00029. 
-    # El calor BAJA el índice, por eso RESTAMOS la perturbación.
-    n_base = 1.00029
-    perturbacion = intensidad_dn * perfil_calor * disipacion
+    distancia_al_centro = np.abs(X - desvio_centro)
     
-    # Añadimos un poco de ruido aleatorio para simular micro-turbulencia
-    ruido = np.random.normal(0, 0.05 * intensidad_dn, X.shape) * perfil_calor
+    # Perfil de Temperatura (Gaussiana)
+    # T = T_amb + DeltaT * exp(-x^2 / sigma^2)
+    # sigma (ancho) crece a medida que sube (difusión)
+    ancho_variable = ancho_columna_m * (0.5 + 1.5 * y_norm) 
     
-    n_field = n_base - (perturbacion + ruido)
+    perfil_gaussiano = np.exp(-(distancia_al_centro**2) / (2 * (ancho_variable/2)**2))
+    
+    # Aplicamos la temperatura
+    # La temperatura decae con la altura (se enfría al subir)
+    enfriamiento = 1.0 - (0.5 * y_norm) 
+    T_campo = T_ambiente + (temperatura_max_delta * perfil_gaussiano * enfriamiento)
+    
+    # Convertir Temperatura a Índice de Refracción (Gladstone-Dale aproximado)
+    # n - 1 es proporcional a la densidad, y densidad es inv. prop. a Temperatura
+    # (n_nuevo - 1) = (n0 - 1) * (T_amb / T_nuevo)
+    
+    n_field = 1.0 + (n0_aire - 1.0) * (T_ambiente / T_campo)
     
     return n_field
-
-def simular_cuchilla_esquina(eps_x, eps_y, sensibilidad, corte_x=50, corte_y=50):
-    """
-    Simula una cuchilla rectangular (ESQUINA) que corta en X y en Y simultáneamente.
-    Esto permite ver gradientes en todas las direcciones (efecto relieve 3D diagonal).
-    
-    Args:
-        eps_x, eps_y: Mapas de desviación angular.
-        sensibilidad: Factor B (metros/radián).
-        corte_x, corte_y: Porcentaje de corte en cada eje (50% es el estándar).
-        
-    Returns:
-        imagen (array 2D): Intensidad resultante.
-    """
-    radio_fuente = 0.0001 # 1mm de fuente
-    
-    # --- EJE X (Vertical Knife Edge) ---
-    desplazamiento_x = eps_x * sensibilidad
-    pos_cuchilla_x = (corte_x - 50) / 100 * radio_fuente * 2
-    dist_borde_x = desplazamiento_x - pos_cuchilla_x
-    # Transmisión de luz en X (0 a 1)
-    transmision_x = 0.5 + (dist_borde_x / (2 * radio_fuente))
-    transmision_x = np.clip(transmision_x, 0, 1)
-    
-    # --- EJE Y (Horizontal Knife Edge) ---
-    desplazamiento_y = eps_y * sensibilidad
-    pos_cuchilla_y = (corte_y - 50) / 100 * radio_fuente * 2
-    dist_borde_y = desplazamiento_y - pos_cuchilla_y
-    # Transmisión de luz en Y (0 a 1)
-    transmision_y = 0.5 + (dist_borde_y / (2 * radio_fuente))
-    transmision_y = np.clip(transmision_y, 0, 1)
-    
-    # --- COMBINACIÓN (INTERSECCIÓN) ---
-    # Si la cuchilla es una esquina sólida que bloquea, por ejemplo, el cuadrante inferior izquierdo,
-    # la luz solo pasa si logra superar AMBOS bordes.
-    # Multiplicamos las transmisiones para simular que la luz debe sobrevivir a ambos cortes.
-    imagen_final = transmision_x * transmision_y
-    
-    return imagen_final
