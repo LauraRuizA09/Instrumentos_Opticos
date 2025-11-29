@@ -6,21 +6,24 @@ import matplotlib.pyplot as plt
 #               Variables fisicas a utilizar
 # ===================================================================
 
-RHO_0 = 1.225        # kg/m^3 (Densidad base)
-K_GLADSTONE = 2.26e-4 # m^3/kg (Constante para luz visible)
+RHO_0 = 1.225                       # kg/m^3 (Densidad base)
+K_GLADSTONE = 2.26e-4               # m^3/kg (Constante para luz visible)
+N_0 = 1.0 + (K_GLADSTONE * RHO_0)   #indice de fase del aire riguroso
+AMPLITUD_A0 = 1                     # Intensidad inicial de la onda
 
 
 # ===================================================================
 #            Creacion de la onda sonora esferica
 # ===================================================================
 
-def mapeo(resolucion, tamano_fisico):
+def mapeo(resolucion_x, resolucion_y, tamano_fisico):
 
-    x = np.linspace(-tamano_fisico/2, tamano_fisico/2, resolucion)
-    y = np.linspace(-tamano_fisico/2, tamano_fisico/2, resolucion)
+    x = np.linspace(-tamano_fisico/2, tamano_fisico/2, resolucion_x)
+    y = np.linspace(-tamano_fisico/2, tamano_fisico/2, resolucion_y)
     X, Y = np.meshgrid(x, y)
-    dx = tamano_fisico / resolucion
-    return X, Y, dx
+    dx = tamano_fisico / resolucion_x
+    dy = tamano_fisico / resolucion_y
+    return X, Y, dx,dy
 
 def generar_onda_sonora(X, Y, frecuencia_espacial, amplitud_rho):
 
@@ -76,7 +79,32 @@ def calcular_desviacion_angular(dn_dx, dn_dy, espesor_z):
     
     return epsilon_x, epsilon_y
 
-def plot_simulacion(campo, titulo, cmap='viridis'):
+# ===================================================================
+#             Construcción del Campo Complejo S(x,y)
+# ===================================================================
+
+def generar_campo_entrada_S(n_field, lambda_luz, espesor_z):
+
+    # Calcular el número de onda
+    k_luz = 2 * np.pi / lambda_luz
+    
+    # Calcular la variación respecto al aire en reposo (Delta n)
+    # Esto es lo que causa el retraso
+    delta_n = n_field - N_0
+    
+    # Calcular el Mapa de Fase phi(x,y)
+    # phi = k * delta_n * L
+    # Esto representa cuánto se atrasó la onda en cada punto (x,y)
+    phi_map = k_luz * delta_n * espesor_z
+    
+    # Construir el campo complejo S(x,y)
+    # S = A0 * exp(i * phi)
+    S_field = AMPLITUD_A0 * np.exp(1j * phi_map)
+    
+    return S_field, phi_map
+
+
+def plot_simulacion(campo, titulo, cmap):
 
     plt.figure(figsize=(6, 5))
     plt.imshow(campo, cmap=cmap)
@@ -85,6 +113,11 @@ def plot_simulacion(campo, titulo, cmap='viridis'):
     plt.axis('off')
     plt.show()
 
+def generar_onda_plana(resolucion_x,resolucion_y, amplitud=1.0):
+
+    # U(x,y) = A * e^(i*0)
+    campo = np.full((resolucion_x, resolucion_y), amplitud, dtype=np.complex128)
+    return campo
 
 # ===================================================================
 #         Funciones de propagación de la luz por matrices
@@ -107,164 +140,152 @@ def matriz_reflexion_curvas(R):
 
  return Re_curve 
 
-# ===================================================================
-#                 Configuración de un solo espejo 
-# ===================================================================
 
-def simular_camino_completo(eps_x, eps_y, distancia_espejo_onda, focal_espejo):
+def propagar_ABCD_(U1, tipo_propagacion, d, R, lam, k):
+    
+    # ===================================================================
+    #                  Coordenadas espaciales (TU CÓDIGO INTACTO)
+    # ===================================================================
 
-    # Recorrido: Fuente de luz -> Onda sonido -> Espejo -> Onda de sonido -> Cuchilla -> Sensor
-    
-    R_espejo = 2 * focal_espejo  # Radio de curvatura
-    
-    # En configuración coincidente, la fuente y cámara están en el centro de curvatura (2f)
-    distancia_total = R_espejo 
-    
-    # Distancias parciales
-    d1_fuente_a_onda = distancia_total - distancia_espejo_onda
-    d2_onda_a_espejo = distancia_espejo_onda
-    
-    M_viaje_largo = matriz_propagacion(d1_fuente_a_onda) # Tramo Fuente-Onda
-    M_viaje_corto = matriz_propagacion(d2_onda_a_espejo) # Tramo Onda-Espejo
-    M_espejo      = matriz_reflexion_curvas(R_espejo)    
-    
-    # CÁLCULO DE SENSIBILIDAD (Trazado de un "Rayo Unitario")
-    # Para no multiplicar matrices gigantes de 800x800 píxeles, calculamos qué le pasa
-    # a un rayo "test" con desviación = 1 radian, y luego aplicamos ese factor a la imagen
-    
-    # Estado Inicial del Rayo (Desviación relativa = 0)
-    # Vector: [Altura (y), Angulo (theta)]
-    rayo_test = np.array([0.0, 0.0]) 
-    
-    # --- INICIO DEL VIAJE ---
-    
-    # Fuentede luz -> Onda de sonido 
-    rayo_test = M_viaje_largo @ rayo_test
-    
-    # El rayo cruza la onda de sonido
-    # Físicamente: El ángulo aumenta en 1 unidad (nuestro test)
-    rayo_test[1] += 1.0 
-    
-    # Onda -> Espejo
-    rayo_test = M_viaje_corto @ rayo_test
-    
-    # Reflexión en el Espejo
-    rayo_test = M_espejo @ rayo_test
-    
-    # Espejo -> Onda 
-    rayo_test = M_viaje_corto @ rayo_test
-    
-    # El rayo vuelve a cruzar la onda
-    # Físicamente: Se vuelve a sumar la desviación (el sonido sigue ahí)
-    rayo_test[1] += 1.0
-    
-    # Onda -> Cuchilla/Sensor (Viaje Final)
-    rayo_test = M_viaje_largo @ rayo_test
-    
-    
-    # El valor final rayo_test[0] es la altura (y) a la que llega el rayo.
-    # Este valor es nuestro "Factor de Sensibilidad Total" del sistema.
-    sensibilidad_total = rayo_test[0]
-    
-    # APLICAR AL CAMPO COMPLETO DE LA IMAGEN
-    # Ahora que sabemos cuánto se mueve un rayo por cada radián de desviación,
-    # multiplicamos por tus matrices de gradientes reales.
-    
-    desplazamiento_x_final = sensibilidad_total * eps_x
-    desplazamiento_y_final = sensibilidad_total * eps_y
-    
-    return desplazamiento_x_final, desplazamiento_y_final, sensibilidad_total
+    #-----Muestreo Horizontal-------
+    Nx = np.shape(U1)[0] # Número de muestras (píxeles)
+    Lx = 0.2 # Tamaño físico de la ventana (mm)
+    dx = Lx / Nx # Paso espacial Δx
+    dfx = 1 / Lx # Paso en frecuencia Δfx
 
+    #-----Muestreo Vertical-------
+    Ny = np.shape(U1)[1]  # Número de muestras (píxeles)
+    Ly = 0.2 # Tamaño físico de la ventana (mm)
+    dy = Ly / Ny # Paso espacial Δy
+    dfy = 1 / Ly # Paso en frecuencia Δfy
+    
+    # --- Coordenadas de entrada ---
+    n = np.arange(Nx) - Nx//2
+    m = np.arange(Ny) - Ny//2
+    xi_vec = n * dx
+    eta_vec = m * dy
+    xi_mesh, eta_mesh = np.meshgrid(xi_vec, eta_vec, indexing='xy')
+
+    # ===================================================================
+    #                  Coordenadas de frecuencia (fx, fy)
+    # ===================================================================
+
+    p = np.arange(Nx) - Nx//2 # Contadores centrados
+    q = np.arange(Ny) - Ny//2
+    fx_vec = p * dfx 
+    fy_vec = q * dfy
+    fx, fy = np.meshgrid(fx_vec, fy_vec) 
+
+    # ===================================================================
+    #                  LÓGICA CONDICIONAL (AQUÍ ESTÁ EL CAMBIO)
+    # ===================================================================
+
+    if tipo_propagacion == "propagar":
+        # CASO 1: INTEGRAL DE COLLINS (Viaje en espacio libre)
+        # Aquí B = d, por lo tanto B != 0. No hay división por cero.
+        
+        M = matriz_propagacion(d)
+        A, B, C, D = M.ravel()
+
+        # --- Cálculo de la Integral ---
+
+        # Fase cuadrática de entrada (dependiente de A)
+        phase1 = (k / (2 * B)) * A * (xi_mesh**2 + eta_mesh**2)
+        U_intermediate1 = U1 * np.exp(1j * phase1)
+
+        # Aplicamos shift para centrar, transformamos y regresamos el centro
+        U_shifted = np.fft.ifftshift(U_intermediate1)
+
+        if B > 0:
+            # El kernel corresponde a una TF
+            U_fft_raw = np.fft.fft2(U_shifted) * dx * dy
+        else: 
+            # El kernel corresponde a una TF inversa.
+            U_fft_raw = np.fft.ifft2(U_shifted) * (Nx * Ny) * dfx * dfy
+        
+        U_fft_unscaled = np.fft.fftshift(U_fft_raw)
+
+        # Coordenadas espaciales de salida: x2 = lambda*B*fx
+        x_vec = fx_vec * lam * B
+        y_vec = fy_vec * lam * B
+
+        # Paso de muestreo en la salida.
+        dx2 = np.abs(x_vec[1] - x_vec[0]) if Nx > 1 else 0
+        dy2 = np.abs(y_vec[1] - y_vec[0]) if Ny > 1 else 0
+        
+        # Mallas de coordenadas 2D de salida.
+        x_mesh, y_mesh = np.meshgrid(x_vec, y_vec, indexing='xy')
+
+        # Fase cuadrática de salida (dependiente de D)
+        phase2 = (k / (2 * B)) * D * (x_mesh**2 + y_mesh**2)
+        
+        # Factores globales
+        pre_factor_integral = 1 / (1j * lam * B)
+        U2 = pre_factor_integral * U_fft_unscaled * np.exp(1j * phase2) 
+
+        return U2, x_mesh, y_mesh, dx2, dy2
+
+    elif tipo_propagacion == "espejo":
+        # CASO 2: ESPEJO CURVO (Elemento delgado)
+        # Aquí B = 0. No usamos integral. Solo multiplicamos fase.
+        # Matriz espejo: [[1, 0], [-2/R, 1]] -> C = -2/R
+        
+        C = -2 / R
+        
+        # Fórmula de fase para elemento delgado: exp( i * k/2 * C * r^2 )
+        fase_espejo = (k / 2) * C * (xi_mesh**2 + eta_mesh**2)
+        
+        U2 = U1 * np.exp(1j * fase_espejo)
+        
+        # En un espejo/lente, las coordenadas de salida son IGUALES a las de entrada
+        return U2, xi_mesh, eta_mesh, dx, dy
+    
+    
 # ===================================================================
 #                 Creación de la cuchilla
 # ===================================================================
 
-def simular_corte_cuchilla(desp_x, desp_y, tipo, radio_focal_m):
-    
-    # Intensidad base (Fondo)
-    # Si es circular (campo oscuro), el fondo es negro
-    # Si es cuchilla recta, el fondo es gris
-    
-    I_base = 0.5
-        
-    if tipo == "vertical":
+def aplicar_filtro_cuchilla(campo_fourier, tipo):
 
-        # Normalizamos el desplazamiento respecto al tamaño del foco
-        cambio_luz = (desp_x / radio_focal_m)
-        imagen = I_base + cambio_luz
+    Nx, Ny = campo_fourier.shape
+    cx, cy = Nx // 2, Ny // 2  # Centro óptico (Frecuencia cero)
+    porcentaje_corte=0.5
+    
+    # Crear la máscara (Todo transparente por defecto)
+    mascara = np.ones((Nx, Ny))
+    
+    if tipo == "vertical":
+        # Schlieren estándar: Cortar desde un lado (ej. izquierda)
+        # Calculamos el índice de corte
+        limite = int(Nx * porcentaje_corte)
+        mascara[:, :limite] = 0
         
     elif tipo == "horizontal":
-
-        cambio_luz = (desp_y / radio_focal_m)
-        imagen = I_base + cambio_luz
+        # Cortar desde abajo/arriba
+        limite = int(Ny * porcentaje_corte)
+        mascara[:limite, :] = 0
         
     elif tipo == "circular":
-        I_base = 0.0
-        # Calculamos la magnitud total del desplazamiento (radio)
-        magnitud_desp = np.sqrt(desp_x**2 + desp_y**2)
+        # Campo oscuro (Dark Field): Bloquea solo el punto central
+        y, x = np.ogrid[:Nx, :Ny]
+        # Radio del bloqueo (ajustable, ej. 20 pixeles)
+        radio_bloqueo = 20 
+        mascara_distancia = (x - cx)**2 + (y - cy)**2
+        mascara[mascara_distancia < radio_bloqueo**2] = 0
         
-        # Cuanto más se aleja del centro bloqueado, más brillante es la imagen
-        imagen = (magnitud_desp / radio_focal_m)
-        
-    else:
-        # Por defecto devuelve negro
-        return np.zeros_like(desp_x)
+    # Aplicamos el filtro: Campo * Máscara
+    campo_filtrado = campo_fourier * mascara
+    
+    return campo_filtrado
 
-    # Limitar valores físicos
-    return np.clip(imagen, 0, 1)
 
 # ===================================================================
 #              Configuración de dos espejos (Z-type)
 # ===================================================================
 
-def simular_z_type_dos_espejos(eps_x, eps_y, distancia_onda_espejo2, focal_espejo2):
-    
-    # Simula el recorrido Z-Type: Onda -> Espejo 2 (Enfoque) -> Cuchilla
-
-    R_espejo2 = 2 * focal_espejo2
-    
-    # La cuchilla se coloca en el foco del Espejo 2
-    distancia_espejo2_cuchilla = focal_espejo2
-    
-    # Tramo A: Desde la Onda hasta el Espejo 2
-    M_viaje_onda_espejo = matriz_propagacion(distancia_onda_espejo2)
-    
-    # Tramo B: Reflexión en Espejo 2
-    M_reflexion2 = matriz_reflexion_curvas(R_espejo2)
-    
-    # Tramo C: Desde Espejo 2 hasta Cuchilla (Distancia focal)
-    M_viaje_espejo_cuchilla = matriz_propagacion(distancia_espejo2_cuchilla)
-    
-    # 3. CÁLCULO DE SENSIBILIDAD (Trazado de Rayo Unitario)
-    # Rayo Test inicial en la Onda: [y=0, theta=0]
-    rayo_test = np.array([0.0, 0.0])
-    
-    # --- INICIO DEL VIAJE ---
-
-    # El rayo cruza la onda UNA sola vez
-    rayo_test[1] += 1.0  # Sumamos 1 radian de desviación
-    
-    # Onda -> Espejo 2
-    rayo_test = M_viaje_onda_espejo @ rayo_test
-    
-    # Reflexión en Espejo 2 
-    rayo_test = M_reflexion2 @ rayo_test
-    
-    # Espejo 2 -> Cuchilla
-    rayo_test = M_viaje_espejo_cuchilla @ rayo_test
-    
-    # --- FIN DEL VIAJE ---
-    
-    # El valor final rayo_test[0] es la altura (y) en la cuchilla.
-    sensibilidad_total = rayo_test[0]
-    
-    desp_x = sensibilidad_total * eps_x
-    desp_y = sensibilidad_total * eps_y
-    
-    return desp_x, desp_y, sensibilidad_total
 
 # ===================================================================
-#       Generar una simulaaciond de una columna de calor
+#       Generar una simulacion de una columna de calor
 # ===================================================================
 
 def generar_ruido_fractal(X, Y, escala=10.0, complejidad=3):

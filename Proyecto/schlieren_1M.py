@@ -1,11 +1,24 @@
-import matplotlib.pyplot as plt
 import numpy as np
-from Funciones import mapeo, generar_onda_sonora, calcular_gradientes, plot_simulacion
-from Funciones import simular_camino_completo, simular_corte_cuchilla, calcular_desviacion_angular
-
+import matplotlib.pyplot as plt
+from Funciones import mapeo, generar_campo_entrada_S, generar_onda_sonora, N_0, generar_onda_plana, plot_simulacion, propagar_ABCD_
+from Funciones import aplicar_filtro_cuchilla
 
 # ===================================================================
-#            Generamos la onda de sonido
+#           Constantes fisicas y parametros de muestreo
+# ===================================================================
+
+# Parámetros de prueba
+L_z = 0.3               # Espesor de la zona de prueba (30 cm)
+lam = 633e-9        # Longitud de onda (633 nm)
+
+# Parámetros de la simualcion de muestreo
+L_x = 0.2            # 20 cm de ventana
+L_y = 0.2
+Nx = 1024            # Resolución
+Ny = 1024
+
+# ===================================================================
+#                    Generamos la onda de sonido
 # ===================================================================
 
 #-------Datos del sistema fisico-------
@@ -29,97 +42,102 @@ Amplitud = 0.005             # Intensidad de la onda, me dice que tanto esta cam
                             # 10e-6 seria le cmabio del indice de refraccion
 
 
-X, Y, dx = mapeo(resolucion=800, tamano_fisico=0.3)
+X, Y, dx, dy = mapeo(Nx, Ny, L_x)
 n_map = generar_onda_sonora(X, Y, f_onda, Amplitud)
-dndx, dndy = calcular_gradientes(n_map, dx)
-eps_x, eps_y = calcular_desviacion_angular(dndx, dndy, espesor_z=0.3)
 
 
 # ===================================================================
-#           Visualizacion de la onda y como cambia n
+#             Generar onda sonora como un campo con fase
 # ===================================================================
 
-plot_simulacion(n_map, f"Campo de Índice de Refracción (n)\nFrecuencia: {frecuencia_generador_hz/1000:.1f} kHz", cmap='gray')
+S_campo, fase = generar_campo_entrada_S(n_map, lam, L_z)
 
-plot_simulacion(dndx, "Gradiente Horizontal (dn/dx)\n(Base para Cuchilla Vertical)", cmap='gray')
-
-plot_simulacion(dndy, "Gradiente Vertical (dn/dy)\n(Base para Cuchilla Horizontal)", cmap='gray')
+# Definir Onda Plana
+U_0 = generar_onda_plana(Nx,Ny)
 
 
 # ===================================================================
-#           Interaccion onda y camino optico completo
+#    Visualización del cambio de fase y el indice de refraccion n
 # ===================================================================
 
-focal = 1             # Espejo f=1m (R=2m)
-posicion_onda = 0.5   # La onda está a 0.5m del espejo (y a 1.5m de la cámara)
-radio_focal = 0.0005  #sensibilidad de que tanto esta dispersada la luz 
+plt.figure(figsize=(12, 5))
 
-# Simulación de Camino Completo
-desp_x, desp_y, factor_S = simular_camino_completo(eps_x, eps_y, posicion_onda, focal)
+# Gráfico 1: El índice de refracción (Física del aire)
+plt.subplot(1, 2, 1)
+plt.title(f"Índice de Refracción $n(x,y)$\nBase: {N_0:.6f}")
+plt.imshow(n_map, cmap='gray')
+plt.colorbar(label="n")
 
-print(f"--- Resultado de la Simulación Óptica ---")
-print(f"Configuración: Objeto a {posicion_onda}m del espejo.")
-print(f"Factor de Sensibilidad calculado: {factor_S:2f} metros de desplazamiento por radián.")
-print(f"(Esto significa que si la onda desvía la luz 1 mrad, la mancha se mueve {factor_S} mm en la cuchilla)")
+# Gráfico 2: La Fase (Óptica de Fourier)
+plt.subplot(1, 2, 2)
+plt.title(r"Carga de Fase $\phi(x,y)$ (Radianes)")
+plt.imshow(fase, cmap='gray') 
+plt.colorbar(label="Rad")
 
-# Aplicar Cuchilla y Graficar
-img_final_trayectoria = simular_corte_cuchilla(desp_x, desp_y,"vertical", radio_focal)
-plot_simulacion(img_final_trayectoria, f"Schlieren Trayectoria Completa (Ida y Vuelta)\nObjeto a {posicion_onda}m del espejo", cmap='gray')
-
-# ===================================================================
-#                   Comparación cuchillas
-# ===================================================================
-
-img_horizontal = simular_corte_cuchilla(desp_x, desp_y, "horizontal", radio_focal)
-img_vertical   = simular_corte_cuchilla(desp_x, desp_y, "vertical", radio_focal)
-img_circular   = simular_corte_cuchilla(desp_x, desp_y, "circular", radio_focal)
-
-# Creamos la figura
-fig, axes = plt.subplots(2, 3, figsize=(15, 10))
-plt.subplots_adjust(hspace=0.3, wspace=0.1)
-
-# [0,0] Horizontal (Gradientes en Y)
-axes[0, 0].imshow(img_horizontal, cmap='gray', extent=[-15,15,-15,15])
-axes[0, 0].set_title("Cuchilla Horizontal")
-axes[0, 0].set_ylabel("Imagen Schlieren", fontsize=12, fontweight='bold')
-
-# [0,1] Vertical (Gradientes en X)
-axes[0, 1].imshow(img_vertical, cmap='gray', extent=[-15,15,-15,15])
-axes[0, 1].set_title("Cuchilla Vertical")
-
-# [0,2] Circular (Campo Oscuro)
-# Usamos 'inferno' para que resalte como en la imagen de referencia
-axes[0, 2].imshow(img_circular, cmap='gray', extent=[-15,15,-15,15])
-axes[0, 2].set_title("Filtro Circular")
-
-
-# Creamos arrays simples de 100x100 para dibujar los cuadrados blanco/negro
-
-# -- Esquema Horizontal --
-esquema_h = np.ones((100, 100))
-esquema_h[50:, :] = 0 # Mitad de abajo negra
-axes[1, 0].imshow(esquema_h, cmap='gray', vmin=0, vmax=1)
-axes[1, 0].scatter([50], [50], c='red', s=30) # Punto rojo = Foco ideal
-axes[1, 0].set_title("Forma del Filtro")
-axes[1, 0].set_ylabel("Esquema Físico", fontsize=12, fontweight='bold')
-
-# -- Esquema Vertical --
-esquema_v = np.ones((100, 100))
-esquema_v[:, :50] = 0 # Mitad izquierda negra
-axes[1, 1].imshow(esquema_v, cmap='gray', vmin=0, vmax=1)
-axes[1, 1].scatter([50], [50], c='red', s=30) # Punto rojo = Foco ideal
-axes[1, 1].set_title("Forma del Filtro")
-
-# -- Esquema Circular --
-esquema_c = np.ones((100, 100))
-y_grid, x_grid = np.ogrid[:100, :100]
-centro = (50, 50)
-radio_esquema = 15
-mascara_circulo = (x_grid - centro[0])**2 + (y_grid - centro[1])**2 <= radio_esquema**2
-esquema_c[mascara_circulo] = 0 # Centro negro
-axes[1, 2].imshow(esquema_c, cmap='gray', vmin=0, vmax=1)
-axes[1, 2].set_title("Forma del Filtro")
-
-
-plt.suptitle("Comparación de Filtros (Knife) Schlieren ($1$ $Espejo$)", fontsize=16)
+plt.tight_layout()
 plt.show()
+
+print(f"Campo S generado. Tipo: {S_campo.dtype}")
+print(f"Fase máxima acumulada: {np.max(fase):.2f} radianes")
+
+# ===================================================================
+#             Propagación sistema óptico
+# ===================================================================
+
+# Datos fisicos del sistema en m
+f = 1               #distancia focal del espejo
+d = f             #distancia de propagacion
+R = 2*f
+k = 2 * np.pi / lam # Numero de onda 
+
+#Definición del recorrido
+
+#De la fuente -> espejo
+#Como es una onda plana entonces es la misma si la propagamos en el espacio libre
+#S1_campo, S1_x_mesh, S1_y_mesh, S1_dx, S1_dy = propagar_ABCD_(U_0,"propagar", d, 0, lam,k)
+
+#Interaccion con el espejo
+S3_campo, S3_x_mesh, S3_y_mesh, S3_dx, S3_dy = propagar_ABCD_(U_0, "espejo", 0, R, lam,k)
+
+#Multiplicamos por el objeto como si fuera una trasnmitancia
+camp1 = S3_campo * S_campo
+
+#Del objeto -> cuchilla
+S5_campo, S5_x_mesh, S5_y_mesh, S5_dx, S5_dy = propagar_ABCD_(camp1, "propagar", d, 0, lam,k)
+
+#Aplicamos el filtro de la cuchilla
+S_filtred = aplicar_filtro_cuchilla(S5_campo,"horizontal")
+
+# Aplicamos la Transformada Inversa (La lente formadora de imagen) que seria la camara o sensor a utilizar
+campo_en_sensor = np.fft.fftshift(np.fft.ifft2(S_filtred))
+
+# Calculamos la intensidad 
+Imagen_Schlieren = np.abs(campo_en_sensor)**2
+
+plot_simulacion(Imagen_Schlieren, "Imagen $SCHLIEREN$ 1 Espejo ($Sonido$)", "gray")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

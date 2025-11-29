@@ -1,113 +1,117 @@
-import matplotlib.pyplot as plt
 import numpy as np
-from Funciones import mapeo, generar_onda_sonora, calcular_gradientes, plot_simulacion
-from Funciones import simular_camino_completo, simular_corte_cuchilla, calcular_desviacion_angular, simular_z_type_dos_espejos
+import matplotlib.pyplot as plt
+from Funciones import mapeo, generar_campo_entrada_S, generar_onda_sonora, N_0, generar_onda_plana, plot_simulacion, propagar_ABCD_
+from Funciones import aplicar_filtro_cuchilla
 
 # ===================================================================
-#            Generamos la onda de sonido
+#           Constantes fisicas y parametros de muestreo
 # ===================================================================
 
-#-------Datos del sistema fisico-------
+# Parámetros de prueba
+L_z = 0.3           # Espesor de la zona de prueba (30 cm)
+lam = 633e-9        # Longitud de onda (633 nm)
 
-# - 20000 Hz (20 kHz) = Ultrasonido bajo (límite auditivo humano)
-# - 40000 Hz (40 kHz) = Ultrasonido estándar (transductores comunes)
-# - 1000 Hz  (1 kHz)  = Sonido agudo audible (se verán pocas ondas muy grandes)
+# Parámetros de la simualcion de muestreo
+L_x = 0.2           # 20 cm de ventana
+L_y = 0.2
+Nx = 1024           # Resolución
+Ny = 1024
+
+# ===================================================================
+#                    Generamos la onda de sonido
+# ===================================================================
 
 frecuencia_generador_hz = 40000
 velocidad_sonido = 343    # m/s (en aire a 20°C)
 
-# Calcular Longitud de Onda (lambda = v / f)
+# Calcular Longitud de Onda
 longitud_onda = velocidad_sonido / frecuencia_generador_hz
 
-# Calcular Frecuencia Espacial  (1 / lambda)
+# Calcular Frecuencia Espacial
 f_onda = 1.0 / longitud_onda
 
-f_onda = 80                 # Frecuencia visual
-Amplitud = 0.005             # Intensidad de la onda, me dice que tanto esta cambiando n
-                            # dejamos este valor que es exagerado para una mejor visualizacion el real es mucho mas bajo
-                            # 10e-6 seria le cmabio del indice de refraccion
+f_onda = 80                 # Frecuencia visual ajustada para ver detalles
+Amplitud = 0.005            # Intensidad de la onda (cambio de n)
 
-
-X, Y, dx = mapeo(resolucion=800, tamano_fisico=0.3)
+X, Y, dx, dy = mapeo(Nx, Ny, L_x)
 n_map = generar_onda_sonora(X, Y, f_onda, Amplitud)
-dndx, dndy = calcular_gradientes(n_map, dx)
-eps_x, eps_y = calcular_desviacion_angular(dndx, dndy, espesor_z=0.3)
-
 
 # ===================================================================
-#          Simulacion de la configuración Z-type
+#             Generar onda sonora como un campo con fase
 # ===================================================================
 
-focal_m2 = 1.5           # Espejo 2 de enfoque (f=1.5m)
-distancia_objeto = 1     # Objeto a 1 metro del espejo 2
-radio_focal = 0.0005  #sensibilidad de que tanto esta dispersada la luz 
+S_campo, fase = generar_campo_entrada_S(n_map, lam, L_z)
 
-# Calculamos trayectoria
-desp_x_z, desp_y_z, factor_S_z = simular_z_type_dos_espejos(eps_x, eps_y, distancia_objeto, focal_m2)
-
-print(f"Sensibilidad Z-Type: {factor_S_z:.4f} m/rad")
-print(f"En un sistema Z ideal, la sensibilidad debería ser igual a la focal ({focal_m2} m).")
-
-# Generar imagen
-img_ztype = simular_corte_cuchilla(desp_x_z, desp_y_z, "horizontal", radio_focal)
-
-plot_simulacion(img_ztype, f"Schlieren Z-Type (Dos Espejos f={focal_m2}m)", cmap='inferno')
-
+# Definir Onda Plana
+# EN SISTEMA Z-TYPE: U_0 representa la luz que YA salió del primer espejo.
+# Es decir, U_0 es el haz colimado (paralelo) que entra a la zona de prueba.
+U_0 = generar_onda_plana(Nx,Ny)
 
 # ===================================================================
-#                   Comparación cuchillas
+#    Visualización del cambio de fase y el indice de refraccion n
 # ===================================================================
 
-img_horizontal = simular_corte_cuchilla(desp_x_z, desp_y_z, "horizontal", radio_focal)
-img_vertical   = simular_corte_cuchilla(desp_x_z, desp_y_z, "vertical", radio_focal)
-img_circular   = simular_corte_cuchilla(desp_x_z, desp_y_z, "circular", radio_focal)
+plt.figure(figsize=(12, 5))
 
-# Creamos la figura
-fig, axes = plt.subplots(2, 3, figsize=(15, 10))
-plt.subplots_adjust(hspace=0.3, wspace=0.1)
+# Gráfico 1: El índice de refracción
+plt.subplot(1, 2, 1)
+plt.title(f"Índice de Refracción $n(x,y)$\nBase: {N_0:.6f}")
+plt.imshow(n_map, cmap='gray')
+plt.colorbar(label="n")
 
-# [0,0] Horizontal (Gradientes en Y)
-axes[0, 0].imshow(img_horizontal, cmap='inferno', extent=[-15,15,-15,15])
-axes[0, 0].set_title("Cuchilla Horizontal")
-axes[0, 0].set_ylabel("Imagen Schlieren", fontsize=12, fontweight='bold')
+# Gráfico 2: La Fase
+plt.subplot(1, 2, 2)
+plt.title(r"Carga de Fase $\phi(x,y)$ (Radianes)")
+plt.imshow(fase, cmap='gray') 
+plt.colorbar(label="Rad")
 
-# [0,1] Vertical (Gradientes en X)
-axes[0, 1].imshow(img_vertical, cmap='inferno', extent=[-15,15,-15,15])
-axes[0, 1].set_title("Cuchilla Vertical")
-
-# [0,2] Circular (Campo Oscuro)
-# Usamos 'inferno' para que resalte como en la imagen de referencia
-axes[0, 2].imshow(img_circular, cmap='inferno', extent=[-15,15,-15,15])
-axes[0, 2].set_title("Filtro Circular")
-
-
-# Creamos arrays simples de 100x100 para dibujar los cuadrados blanco/negro
-
-# -- Esquema Horizontal --
-esquema_h = np.ones((100, 100))
-esquema_h[50:, :] = 0 # Mitad de abajo negra
-axes[1, 0].imshow(esquema_h, cmap='gray', vmin=0, vmax=1)
-axes[1, 0].scatter([50], [50], c='red', s=30) # Punto rojo = Foco ideal
-axes[1, 0].set_title("Forma del Filtro")
-axes[1, 0].set_ylabel("Esquema Físico", fontsize=12, fontweight='bold')
-
-# -- Esquema Vertical --
-esquema_v = np.ones((100, 100))
-esquema_v[:, :50] = 0 # Mitad izquierda negra
-axes[1, 1].imshow(esquema_v, cmap='gray', vmin=0, vmax=1)
-axes[1, 1].scatter([50], [50], c='red', s=30) # Punto rojo = Foco ideal
-axes[1, 1].set_title("Forma del Filtro")
-
-# -- Esquema Circular --
-esquema_c = np.ones((100, 100))
-y_grid, x_grid = np.ogrid[:100, :100]
-centro = (50, 50)
-radio_esquema = 15
-mascara_circulo = (x_grid - centro[0])**2 + (y_grid - centro[1])**2 <= radio_esquema**2
-esquema_c[mascara_circulo] = 0 # Centro negro
-axes[1, 2].imshow(esquema_c, cmap='gray', vmin=0, vmax=1)
-axes[1, 2].set_title("Forma del Filtro")
-
-
-plt.suptitle("Comparación de Filtros (Knife) Schlieren ($2$ $Espejos$ $Z-type$)", fontsize=16)
+plt.tight_layout()
 plt.show()
+
+print(f"Campo S generado. Tipo: {S_campo.dtype}")
+print(f"Fase máxima acumulada: {np.max(fase):.2f} radianes")
+
+# ===================================================================
+#             Propagación sistema óptico (CONFIGURACIÓN 2 ESPEJOS)
+# ===================================================================
+
+# Datos fisicos del segundo espejo (El de enfoque)
+f2 = 1.0              # Distancia focal del Espejo 2
+d_foco = f2           # Distancia al plano de la cuchilla
+R2 = 2 * f2           # Radio de curvatura del Espejo 2
+k = 2 * np.pi / lam   # Numero de onda 
+
+# --- Definición del recorrido (Z-Type) ---
+
+# PASO 1: Zona de Prueba (Haz Paralelo)
+# En el sistema Z, la luz viaja paralela entre el Espejo 1 y el Espejo 2.
+# El objeto (S_campo) perturba esta luz plana directamente.
+# Nota: Ignoramos la difracción en el espacio libre dentro de la zona de prueba 
+# por ser pequeña (L_z) comparada con f2, asumiendo "Objeto Delgado".
+
+camp_zona_prueba = U_0 * S_campo
+
+# PASO 2: Interacción con el Espejo 2 (Enfoque)
+# El haz perturbado golpea el segundo espejo parabólico.
+# Esto añade la curvatura necesaria para converger la luz.
+# Usamos "espejo" con R2.
+camp_espejo2, _, _, _, _ = propagar_ABCD_(camp_zona_prueba, "espejo", 0, R2, lam, k)
+
+# PASO 3: Propagación al Foco (Cuchilla)
+# La luz viaja desde el Espejo 2 hasta su punto focal (distancia f2).
+# Aquí el haz se reduce a un punto (transformada de Fourier).
+camp_plano_focal, _, _, _, _ = propagar_ABCD_(camp_espejo2, "propagar", d_foco, 0, lam, k)
+
+# PASO 4: Aplicamos el filtro de la cuchilla
+# Cortamos en el plano de Fourier.
+S_filtred = aplicar_filtro_cuchilla(camp_plano_focal, "horizontal")
+
+# PASO 5: Cámara (Transformada Inversa)
+# La lente de la cámara reconstruye la imagen final desde el plano filtrado.
+campo_en_sensor = np.fft.fftshift(np.fft.ifft2(S_filtred))
+
+# Calculamos la intensidad 
+Imagen_Schlieren = np.abs(campo_en_sensor)**2
+
+# Visualización Final
+plot_simulacion(Imagen_Schlieren, "Imagen $SCHLIEREN$ Z-Type (2 Espejos)", "gray")
