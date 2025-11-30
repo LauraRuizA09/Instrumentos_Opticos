@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from Funciones import N_0, generar_onda_plana, plot_simulacion
-from Funciones import onda_sonora_campo, schlieren_1M
+from Funciones import onda_sonora_campo, schlieren_2M
 
 # ===================================================================
 #           Constantes fisicas y parametros de muestreo
@@ -54,31 +54,31 @@ print(f"Fase máxima acumulada: {np.max(fase):.2f} radianes")
 #                   Propagación sistema óptico
 # ===================================================================
 
-Imagen_sch_1M_V = schlieren_1M(U_0, lam, S_campo, "vertical")
-Imagen_sch_1M_H = schlieren_1M(U_0, lam, S_campo, "horizontal")
-Imagen_sch_1M_C = schlieren_1M(U_0, lam, S_campo, "circular")
+Imagen_sch_2M_V = schlieren_2M(U_0, lam, S_campo, "vertical")
+Imagen_sch_2M_H = schlieren_2M(U_0, lam, S_campo, "horizontal")
+Imagen_sch_2M_C = schlieren_2M(U_0, lam, S_campo, "circular")
 
 # ===================================================================
 #                         Resultados
 # ===================================================================
 
-plot_simulacion(Imagen_sch_1M_V, "Imagen $SCHLIEREN$ 1 Espejo ($Sonido$) \n Knife Vertical", "gray")
-plot_simulacion(Imagen_sch_1M_H, "Imagen $SCHLIEREN$ 1 Espejo ($Sonido$) \n Knife Horizontal", "gray")
-plot_simulacion(Imagen_sch_1M_C, "Imagen $SCHLIEREN$ 1 Espejo ($Sonido$) \n Knife Circular", "gray")
+plot_simulacion(Imagen_sch_2M_V, "Imagen $SCHLIEREN$ 2 Espejos ($Sonido$) \n Knife Vertical", "gray")
+plot_simulacion(Imagen_sch_2M_H, "Imagen $SCHLIEREN$ 2 Espejos ($Sonido$) \n Knife Horizontal", "gray")
+plot_simulacion(Imagen_sch_2M_C, "Imagen $SCHLIEREN$ 2 Espejos ($Sonido$) \n Knife Circular", "gray")
 
 # ===================================================================
 #              Comparación difernetes cuchillas 
 # ===================================================================
 
 fig, axs = plt.subplots(2, 3, figsize=(12, 8))
-fig.suptitle("Comparación de imagenes Schlieren (1 Espejo) con diferentes $Knifes$", fontsize=16)
+fig.suptitle("Comparación de imagenes Schlieren (2 espejos) con diferentes $Knifes$", fontsize=16)
 
 # Datos comunes para recrear las máscaras visualmente
-Nx, Ny = Imagen_sch_1M_V.shape
+Nx, Ny = Imagen_sch_2M_V.shape
 cx, cy = Nx // 2, Ny // 2
 
 # ---------------- COLUMNA 1: CORTE VERTICAL ----------------
-axs[0, 0].imshow(Imagen_sch_1M_V, cmap='gray')
+axs[0, 0].imshow(Imagen_sch_2M_V, cmap='gray')
 axs[0, 0].set_title("Schlieren Vertical")
 axs[0, 0].axis('off')
 
@@ -92,7 +92,7 @@ for spine in axs[1,0].spines.values(): spine.set_edgecolor('black'); spine.set_l
 
 
 # ---------------- COLUMNA 2: CORTE HORIZONTAL ----------------
-axs[0, 1].imshow(Imagen_sch_1M_H, cmap='gray')
+axs[0, 1].imshow(Imagen_sch_2M_H, cmap='gray')
 axs[0, 1].set_title("Schlieren Horizontal")
 axs[0, 1].axis('off')
 
@@ -104,7 +104,7 @@ axs[1, 1].axis('off')
 
 
 # ---------------- COLUMNA 3: CORTE CIRCULAR ----------------
-axs[0, 2].imshow(Imagen_sch_1M_C, cmap='gray')
+axs[0, 2].imshow(Imagen_sch_2M_C, cmap='gray')
 axs[0, 2].set_title("Schlieren Circular")
 axs[0, 2].axis('off')
 

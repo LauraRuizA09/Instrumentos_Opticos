@@ -103,4 +103,4 @@ campo_en_sensor = np.fft.fftshift(np.fft.ifft2(S_filtred))
 # Calculamos la intensidad 
 Imagen_Schlieren = np.abs(campo_en_sensor)**2
 
-plot_simulacion(Imagen_Schlieren, "Imagen $SCHLIEREN$ 1 Espejo ($Sonido$)", "gray")
+plot_simulacion(Imagen_Schlieren, "Imagen $SCHLIEREN$ 1 Espejo ($Columna de calor$)", "gray")
