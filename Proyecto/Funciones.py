@@ -447,41 +447,33 @@ def schlieren_2M(U_0, lam, S_campo, tipo_cuchilla):
     # Datos fisicos de los espejos (Asumimos simetría R1 = R2)
     f_espejo = 1.0        # Distancia focal 
     R_espejo = 2 * f_espejo # Radio de curvatura (R = 2f)
-    d_foco = f_espejo     # Distancia del Espejo 2 al sensor (Foco)
-    
-    # Distancia de separación entre componentes (Brazo de la Z)
-    # Esto "despega" los espejos. Ponemos 1 metro entre cada elemento.
-    d_brazo = 1.0         
-    
+    d_foco = f_espejo     # Distancia del Espejo 2 al sensor (Foco)          
     k = 2 * np.pi / lam   # Numero de onda 
 
-    # --- Definición del recorrido (Trayectoria Física Completa) ---
+    # --- Definición del recorrido---
 
-    # PASO 1: Interacción con el Espejo 1 (Colimador)
-    # La luz entra y rebota en el primer espejo.
-    camp_m1, _, _, _, _ = propagar_ABCD_(U_0, "espejo", 0, R_espejo, lam, k)
+    # La luz se propaga hasta el primer espejo
+    camp_m, _, _, _, _ = propagar_ABCD_(U_0, "propagar", f_espejo, 0, lam, k)
 
-    # PASO 2: Propagación: Espejo 1 -> Objeto
+    # La luz rebota en el primer espejo.
+    camp_m1, _, _, _, _ = propagar_ABCD_(camp_m, "espejo", 0, R_espejo, lam, k)
+
     # La luz viaja por el aire hasta llegar a donde está el sonido.
-    camp_antes_obj, _, _, _, _ = propagar_ABCD_(camp_m1, "propagar", d_brazo, 0, lam, k)
+    camp_antes_obj, _, _, _, _ = propagar_ABCD_(camp_m1, "propagar", f_espejo/2, 0, lam, k)
 
-    # PASO 3: Interacción con el Objeto (Zona de Prueba)
     # La luz atraviesa la perturbación.
     camp_despues_obj = camp_antes_obj * S_campo
 
-    # PASO 4: Propagación: Objeto -> Espejo 2
     # La luz sigue viajando por el aire hasta el segundo espejo.
-    camp_antes_m2, _, _, _, _ = propagar_ABCD_(camp_despues_obj, "propagar", d_brazo, 0, lam, k)
+    camp_antes_m2, _, _, _, _ = propagar_ABCD_(camp_despues_obj, "propagar", f_espejo/2, 0, lam, k)
 
-    # PASO 5: Interacción con el Espejo 2 (Enfoque)
     # El haz rebota en el segundo espejo y empieza a converger.
     camp_m2, _, _, _, _ = propagar_ABCD_(camp_antes_m2, "espejo", 0, R_espejo, lam, k)
 
-    # PASO 6: Propagación: Espejo 2 -> Sensor (Foco)
     # La luz viaja hasta el plano focal donde está la cuchilla.
-    camp_plano_focal, _, _, _, _ = propagar_ABCD_(camp_m2, "propagar", d_foco, 0, lam, k)
+    camp_plano_focal, _, _, _, _ = propagar_ABCD_(camp_m2, "propagar", f_espejo, 0, lam, k)
 
-    # PASO 7: Aplicamos el filtro de la cuchilla
+    # Aplicamos el filtro de la cuchilla
     S_filtred = aplicar_filtro_cuchilla(camp_plano_focal, tipo_cuchilla)
 
     # PASO 8: Cámara (Transformada Inversa)

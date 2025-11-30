@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from Funciones import mapeo, generar_campo_entrada_S, N_0, generar_onda_plana, plot_simulacion, propagar_ABCD_
-from Funciones import aplicar_filtro_cuchilla, generar_columna_calor
+from Funciones import mapeo, generar_campo_entrada_S, N_0, generar_onda_plana, plot_simulacion
+from Funciones import generar_columna_calor, schlieren_1M, schlieren_2M
 
 # ===================================================================
 #                   Parametros Fisicos y de muestreo
@@ -13,9 +13,6 @@ delta_temp_K = 80
 
 # Ancho de la fuente de calor
 ancho_fuente = 0.02  # 2 cm de ancho
-
-# Configuración del espacio (Espejo de 30 cm)
-resolucion = 800
 tamano_fisico_m = 0.3
 
 # Parámetros de prueba
@@ -70,37 +67,135 @@ print(f"Campo S generado. Tipo: {S_campo.dtype}")
 print(f"Fase máxima acumulada: {np.max(fase):.2f} radianes")
 
 # ===================================================================
-#             Propagación sistema óptico
+#                   Propagación sistema óptico
 # ===================================================================
 
-# Datos fisicos del sistema en m
-f = 1               #distancia focal del espejo
-d = f             #distancia de propagacion
-R = 2*f
-k = 2 * np.pi / lam # Numero de onda 
+Imagen_sch_1M_V = schlieren_1M(U_0, lam, S_campo, "vertical")
+Imagen_sch_1M_H = schlieren_1M(U_0, lam, S_campo, "horizontal")
+Imagen_sch_1M_C = schlieren_1M(U_0, lam, S_campo, "circular")
 
-#Definición del recorrido
+Imagen_sch_2M_V = schlieren_2M(U_0, lam, S_campo, "vertical")
+Imagen_sch_2M_H = schlieren_2M(U_0, lam, S_campo, "horizontal")
+Imagen_sch_2M_C = schlieren_2M(U_0, lam, S_campo, "circular")
 
-#De la fuente -> espejo
-#Como es una onda plana entonces es la misma si la propagamos en el espacio libre
-#S1_campo, S1_x_mesh, S1_y_mesh, S1_dx, S1_dy = propagar_ABCD_(U_0,"propagar", d, 0, lam,k)
+# ===================================================================
+#                         Resultados
+# ===================================================================
 
-#Interaccion con el espejo
-S3_campo, S3_x_mesh, S3_y_mesh, S3_dx, S3_dy = propagar_ABCD_(U_0, "espejo", 0, R, lam,k)
+#plot_simulacion(Imagen_sch_1M_V, "Imagen $SCHLIEREN$ 1 Espejo ($Sonido$) \n Knife Vertical", "gray")
+#plot_simulacion(Imagen_sch_1M_H, "Imagen $SCHLIEREN$ 1 Espejo ($Sonido$) \n Knife Horizontal", "gray")
+#plot_simulacion(Imagen_sch_1M_C, "Imagen $SCHLIEREN$ 1 Espejo ($Sonido$) \n Knife Circular", "gray")
 
-#Multiplicamos por el objeto como si fuera una trasnmitancia
-camp1 = S3_campo * S_campo
+# ===================================================================
+#            Comparación difernetes cuchillas 1 MIRROR
+# ===================================================================
 
-#Del objeto -> cuchilla
-S5_campo, S5_x_mesh, S5_y_mesh, S5_dx, S5_dy = propagar_ABCD_(camp1, "propagar", d, 0, lam,k)
+fig, axs = plt.subplots(2, 3, figsize=(12, 8))
+fig.suptitle("Comparación de imagenes Schlieren (1 Espejo) con diferentes $Knifes$", fontsize=16)
 
-#Aplicamos el filtro de la cuchilla
-S_filtred = aplicar_filtro_cuchilla(S5_campo,"horizontal")
+# Datos comunes para recrear las máscaras visualmente
+Nx, Ny = Imagen_sch_1M_V.shape
+cx, cy = Nx // 2, Ny // 2
 
-# Aplicamos la Transformada Inversa (La lente formadora de imagen) que seria la camara o sensor a utilizar
-campo_en_sensor = np.fft.fftshift(np.fft.ifft2(S_filtred))
+# ---------------- COLUMNA 1: CORTE VERTICAL ----------------
+axs[0, 0].imshow(Imagen_sch_1M_V, cmap='gray')
+axs[0, 0].set_title("Schlieren Vertical")
+axs[0, 0].axis('off')
 
-# Calculamos la intensidad 
-Imagen_Schlieren = np.abs(campo_en_sensor)**2
+mask_v = np.ones((Nx, Ny))
+mask_v[:, :cx] = 0 # Bloqueamos izquierda (0 = Negro)
+axs[1, 0].imshow(mask_v, cmap='gray', vmin=0, vmax=1)
+axs[1, 0].set_title("Filtro: Vertical")
+axs[1, 0].axis('off')
+# Añadimos borde negro fino para que se note el cuadro blanco
+for spine in axs[1,0].spines.values(): spine.set_edgecolor('black'); spine.set_linewidth(1)
 
-plot_simulacion(Imagen_Schlieren, "Imagen $SCHLIEREN$ 1 Espejo ($Columna de calor$)", "gray")
+
+# ---------------- COLUMNA 2: CORTE HORIZONTAL ----------------
+axs[0, 1].imshow(Imagen_sch_1M_H, cmap='gray')
+axs[0, 1].set_title("Schlieren Horizontal")
+axs[0, 1].axis('off')
+
+mask_h = np.ones((Nx, Ny))
+mask_h[:cy, :] = 0 # Bloqueamos abajo (0 = Negro)
+axs[1, 1].imshow(mask_h, cmap='gray', vmin=0, vmax=1)
+axs[1, 1].set_title("Filtro: Horizontal")
+axs[1, 1].axis('off')
+
+# ---------------- COLUMNA 3: CORTE CIRCULAR ----------------
+axs[0, 2].imshow(Imagen_sch_1M_C, cmap='gray')
+axs[0, 2].set_title("Schlieren Circular")
+axs[0, 2].axis('off')
+
+mask_c = np.ones((Nx, Ny))
+y_g, x_g = np.ogrid[:Nx, :Ny]
+mask_c[(x_g - cx)**2 + (y_g - cy)**2 < 20**2] = 0 # Bloqueamos punto central
+
+# Hacemos zoom al centro porque el punto es muy pequeño
+zoom = 100 
+mask_c_zoom = mask_c[cx-zoom:cx+zoom, cy-zoom:cy+zoom]
+
+axs[1, 2].imshow(mask_c_zoom, cmap='gray', vmin=0, vmax=1)
+axs[1, 2].set_title("Filtro: Circular")
+axs[1, 2].axis('off')
+
+plt.tight_layout()
+plt.show()
+
+# ===================================================================
+#             Comparación difernetes cuchillas  2 MIRROR
+# ===================================================================
+
+fig, axs = plt.subplots(2, 3, figsize=(12, 8))
+fig.suptitle("Comparación de imagenes Schlieren (2 espejos) con diferentes $Knifes$", fontsize=16)
+
+# Datos comunes para recrear las máscaras visualmente
+Nx, Ny = Imagen_sch_2M_V.shape
+cx, cy = Nx // 2, Ny // 2
+
+# ---------------- COLUMNA 1: CORTE VERTICAL ----------------
+axs[0, 0].imshow(Imagen_sch_2M_V, cmap='gray')
+axs[0, 0].set_title("Schlieren Vertical")
+axs[0, 0].axis('off')
+
+mask_v = np.ones((Nx, Ny))
+mask_v[:, :cx] = 0 # Bloqueamos izquierda (0 = Negro)
+axs[1, 0].imshow(mask_v, cmap='gray', vmin=0, vmax=1)
+axs[1, 0].set_title("Filtro: Vertical")
+axs[1, 0].axis('off')
+# Añadimos borde negro fino para que se note el cuadro blanco
+for spine in axs[1,0].spines.values(): spine.set_edgecolor('black'); spine.set_linewidth(1)
+
+
+# ---------------- COLUMNA 2: CORTE HORIZONTAL ----------------
+axs[0, 1].imshow(Imagen_sch_2M_H, cmap='gray')
+axs[0, 1].set_title("Schlieren Horizontal")
+axs[0, 1].axis('off')
+
+mask_h = np.ones((Nx, Ny))
+mask_h[:cy, :] = 0 # Bloqueamos abajo (0 = Negro)
+axs[1, 1].imshow(mask_h, cmap='gray', vmin=0, vmax=1)
+axs[1, 1].set_title("Filtro: Horizontal")
+axs[1, 1].axis('off')
+
+
+# ---------------- COLUMNA 3: CORTE CIRCULAR ----------------
+axs[0, 2].imshow(Imagen_sch_2M_C, cmap='gray')
+axs[0, 2].set_title("Schlieren Circular")
+axs[0, 2].axis('off')
+
+mask_c = np.ones((Nx, Ny))
+y_g, x_g = np.ogrid[:Nx, :Ny]
+mask_c[(x_g - cx)**2 + (y_g - cy)**2 < 20**2] = 0 # Bloqueamos punto central
+
+# Hacemos zoom al centro porque el punto es muy pequeño
+zoom = 100 
+mask_c_zoom = mask_c[cx-zoom:cx+zoom, cy-zoom:cy+zoom]
+
+axs[1, 2].imshow(mask_c_zoom, cmap='gray', vmin=0, vmax=1)
+axs[1, 2].set_title("Filtro: Circular")
+axs[1, 2].axis('off')
+
+plt.tight_layout()
+plt.show()
+
