@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from Funciones import N_0, generar_onda_plana, plot_simulacion
-from Funciones import onda_sonora_campo, schlieren_1M
+from Funciones import onda_sonora_campo, schlieren_1M, generar_onda_esferica
 
 # ===================================================================
 #           Constantes fisicas y parametros de muestreo
@@ -16,15 +16,19 @@ L_x = 0.2            # 20 cm de ventana
 L_y = 0.2
 Nx = 1024            # Resolución
 Ny = 1024
-
-# ===================================================================
+f = 1.2
+R = 2 * f
+# ==*=================================================================
 #             Generar onda sonora como un campo con fase
 # ===================================================================
 
 S_campo, fase, n_map = onda_sonora_campo()
 
 # Definir Onda Plana
-U_0 = generar_onda_plana(Nx,Ny)
+#U_0 = generar_onda_plana(Nx,Ny)
+
+#Onda esferica
+U_0 = generar_onda_esferica(Nx,Ny,lam,R,L_x,L_y)
 
 # ===================================================================
 #    Visualización del cambio de fase y el indice de refraccion n
@@ -62,9 +66,9 @@ Imagen_sch_1M_C = schlieren_1M(U_0, lam, S_campo, "circular")
 #                         Resultados
 # ===================================================================
 
-plot_simulacion(Imagen_sch_1M_V, "Imagen $SCHLIEREN$ 1 Espejo ($Sonido$) \n Knife Vertical", "gray")
-plot_simulacion(Imagen_sch_1M_H, "Imagen $SCHLIEREN$ 1 Espejo ($Sonido$) \n Knife Horizontal", "gray")
-plot_simulacion(Imagen_sch_1M_C, "Imagen $SCHLIEREN$ 1 Espejo ($Sonido$) \n Knife Circular", "gray")
+#plot_simulacion(Imagen_sch_1M_V, "Imagen $SCHLIEREN$ 1 Espejo ($Sonido$) \n Knife Vertical", "gray")
+#plot_simulacion(Imagen_sch_1M_H, "Imagen $SCHLIEREN$ 1 Espejo ($Sonido$) \n Knife Horizontal", "gray")
+#plot_simulacion(Imagen_sch_1M_C, "Imagen $SCHLIEREN$ 1 Espejo ($Sonido$) \n Knife Circular", "gray")
 
 # ===================================================================
 #              Comparación difernetes cuchillas 

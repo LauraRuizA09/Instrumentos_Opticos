@@ -62,9 +62,9 @@ Imagen_sch_2M_C = schlieren_2M(U_0, lam, S_campo, "circular")
 #                         Resultados
 # ===================================================================
 
-plot_simulacion(Imagen_sch_2M_V, "Imagen $SCHLIEREN$ 2 Espejos ($Sonido$) \n Knife Vertical", "gray")
-plot_simulacion(Imagen_sch_2M_H, "Imagen $SCHLIEREN$ 2 Espejos ($Sonido$) \n Knife Horizontal", "gray")
-plot_simulacion(Imagen_sch_2M_C, "Imagen $SCHLIEREN$ 2 Espejos ($Sonido$) \n Knife Circular", "gray")
+#plot_simulacion(Imagen_sch_2M_V, "Imagen $SCHLIEREN$ 2 Espejos ($Sonido$) \n Knife Vertical", "gray")
+#plot_simulacion(Imagen_sch_2M_H, "Imagen $SCHLIEREN$ 2 Espejos ($Sonido$) \n Knife Horizontal", "gray")
+#plot_simulacion(Imagen_sch_2M_C, "Imagen $SCHLIEREN$ 2 Espejos ($Sonido$) \n Knife Circular", "gray")
 
 # ===================================================================
 #              Comparación difernetes cuchillas 

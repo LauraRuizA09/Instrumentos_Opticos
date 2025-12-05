@@ -119,6 +119,19 @@ def generar_onda_plana(resolucion_x,resolucion_y, amplitud=1.0):
     campo = np.full((resolucion_x, resolucion_y), amplitud, dtype=np.complex128)
     return campo
 
+
+def generar_onda_esferica(resolucion_x, resolucion_y, longitud_onda, R, Lx, Ly):
+
+    x = np.linspace(-Lx/2, Ly/2, resolucion_x)
+    y = np.linspace(-Lx/2, Ly/2, resolucion_y)
+    X, Y = np.meshgrid(x, y)
+
+    k = 2*np.pi/longitud_onda
+    fase = (k/(2*R)) * (X**2 + Y**2)
+  
+    return np.exp(1j*fase)
+
+
 # ===================================================================
 #         Funciones de propagación de la luz por matrices
 # ===================================================================
@@ -407,8 +420,7 @@ def schlieren_1M(U_0, lam, S_campo, tipo_cuchilla):
     # ===================================================================
 
     # Datos fisicos del sistema en m
-    f = 1               #distancia focal del espejo
-    d = f               #distancia de propagacion
+    f = 1.2               #distancia focal del espejo             
     R = 2*f
     k = 2 * np.pi / lam # Numero de onda 
 
@@ -416,7 +428,7 @@ def schlieren_1M(U_0, lam, S_campo, tipo_cuchilla):
 
     #De la fuente -> espejo
     #Como es una onda plana entonces es la misma si la propagamos en el espacio libre
-    #S1_campo, S1_x_mesh, S1_y_mesh, S1_dx, S1_dy = propagar_ABCD_(U_0,"propagar", d, 0, lam,k)
+    #S1_campo, S1_x_mesh, S1_y_mesh, S1_dx, S1_dy = propagar_ABCD_(U_0,"propagar", R, 0, lam,k)
 
     #Interaccion con el espejo
     S3_campo, S3_x_mesh, S3_y_mesh, S3_dx, S3_dy = propagar_ABCD_(U_0, "espejo", 0, R, lam,k)
@@ -425,7 +437,7 @@ def schlieren_1M(U_0, lam, S_campo, tipo_cuchilla):
     camp1 = S3_campo * S_campo
 
     #Del objeto -> cuchilla
-    S5_campo, S5_x_mesh, S5_y_mesh, S5_dx, S5_dy = propagar_ABCD_(camp1, "propagar", d, 0, lam,k)
+    S5_campo, S5_x_mesh, S5_y_mesh, S5_dx, S5_dy = propagar_ABCD_(camp1, "propagar", R, 0, lam,k)
 
     #Aplicamos el filtro de la cuchilla
     S_filtred = aplicar_filtro_cuchilla(S5_campo, tipo_cuchilla)
@@ -433,10 +445,14 @@ def schlieren_1M(U_0, lam, S_campo, tipo_cuchilla):
     # Aplicamos la Transformada Inversa (La lente formadora de imagen) que seria la camara o sensor a utilizar
     campo_en_sensor = np.fft.fftshift(np.fft.ifft2(S_filtred))
 
+    #Del cuchilla -> camara
+    #S_campo, _,_,_,_ = propagar_ABCD_(campo_en_sensor, "propagar", 0.20, 0, lam,k)
+
     # Calculamos la intensidad 
     Imagen_Schlieren = np.abs(campo_en_sensor)**2
 
     return Imagen_Schlieren
+
 
 def schlieren_2M(U_0, lam, S_campo, tipo_cuchilla):
 
@@ -453,19 +469,19 @@ def schlieren_2M(U_0, lam, S_campo, tipo_cuchilla):
     # --- Definición del recorrido---
 
     # La luz se propaga hasta el primer espejo
-    camp_m, _, _, _, _ = propagar_ABCD_(U_0, "propagar", f_espejo, 0, lam, k)
+    #camp_m, _, _, _, _ = propagar_ABCD_(U_0, "propagar", f_espejo, 0, lam, k)
 
     # La luz rebota en el primer espejo.
-    camp_m1, _, _, _, _ = propagar_ABCD_(camp_m, "espejo", 0, R_espejo, lam, k)
+    camp_m1, _, _, _, _ = propagar_ABCD_(U_0, "espejo", 0, R_espejo, lam, k)
 
     # La luz viaja por el aire hasta llegar a donde está el sonido.
-    camp_antes_obj, _, _, _, _ = propagar_ABCD_(camp_m1, "propagar", f_espejo/2, 0, lam, k)
+    #camp_antes_obj, _, _, _, _ = propagar_ABCD_(camp_m1, "propagar", f_espejo/2, 0, lam, k)
 
     # La luz atraviesa la perturbación.
-    camp_despues_obj = camp_antes_obj * S_campo
+    camp_despues_obj = camp_m1 * S_campo
 
     # La luz sigue viajando por el aire hasta el segundo espejo.
-    camp_antes_m2, _, _, _, _ = propagar_ABCD_(camp_despues_obj, "propagar", f_espejo/2, 0, lam, k)
+    camp_antes_m2, _, _, _, _ = propagar_ABCD_(camp_despues_obj, "propagar", f_espejo, 0, lam, k)
 
     # El haz rebota en el segundo espejo y empieza a converger.
     camp_m2, _, _, _, _ = propagar_ABCD_(camp_antes_m2, "espejo", 0, R_espejo, lam, k)
